@@ -1,0 +1,6 @@
+org\Main\iventWar\EventListener.class
+org\Main\iventWar\Team.class
+org\Main\iventWar\TeamManager$TeamData.class
+org\Main\iventWar\TeamManager.class
+org\Main\iventWar\CommandHandler.class
+org\Main\iventWar\IventWar.class
