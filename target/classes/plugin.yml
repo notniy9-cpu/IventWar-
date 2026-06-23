@@ -7,7 +7,17 @@ description: Team management plugin with chat and tab integration
 commands:
   team:
     description: Main team command
-    usage: /team <create|invite|accept|decline|kick|leave|info|desc|color|prefix>
+    usage: /team <create|invite|accept|decline|kick|leave|info|desc|color|style|prefix>
+    aliases: []
+  myteam:
+    description: Show your team menu
+    usage: /myteam
+    aliases: []
+  tc:
+    description: Team chat
+    usage: /tc <message>
+    aliases: []
   topbro:
-    description: Special command
+    description: Secret command
     usage: /topbro
+    aliases: []

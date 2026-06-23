@@ -30,6 +30,7 @@ public class TeamManager {
         }
     }
 
+    // -------- Основные методы --------
     public Team createTeam(String name, UUID leader) {
         if (teams.containsKey(name)) return null;
         if (playerTeamMap.containsKey(leader)) return null;
@@ -95,7 +96,7 @@ public class TeamManager {
                 saveTeams();
                 Player newLeaderPlayer = Bukkit.getPlayer(newLeader);
                 if (newLeaderPlayer != null) {
-                    newLeaderPlayer.sendMessage(ChatColor.GOLD + "You are now the leader of team '" +
+                    newLeaderPlayer.sendMessage(ChatColor.GOLD + "Теперь ты лидер команды '" +
                             team.getColoredName() + ChatColor.GOLD + "'!");
                 }
                 updateAllTeamTab(team);
@@ -128,6 +129,7 @@ public class TeamManager {
         return false;
     }
 
+    // -------- Приглашения --------
     public void addInvitation(UUID player, String teamName) {
         pendingInvitations.put(player, teamName);
     }
@@ -140,6 +142,7 @@ public class TeamManager {
         pendingInvitations.remove(player);
     }
 
+    // -------- Обновление Tab --------
     public void updateAllTeamTab(Team team) {
         for (UUID member : team.getMembers()) {
             Player player = Bukkit.getPlayer(member);
@@ -155,13 +158,19 @@ public class TeamManager {
             player.setPlayerListName(player.getName());
             return;
         }
+
         String prefix = team.getPrefix(player.getUniqueId());
-        // Префикс уже белый, просто добавляем
-        String displayName = team.getFormattedNameWithBrackets() + " " + player.getName() + " " + prefix;
-        if (displayName.length() > 64) displayName = displayName.substring(0, 64);
+        // Используем getColoredNameWithBrackets() который применяет стиль
+        String displayName = team.getColoredNameWithBrackets() + " " + player.getName() + " " + prefix;
+
+        // Minecraft ограничивает длину имени в Tab до 64 символов
+        if (displayName.length() > 64) {
+            displayName = displayName.substring(0, 64);
+        }
         player.setPlayerListName(displayName);
     }
 
+    // -------- Сохранение / Загрузка --------
     public void saveTeams() {
         try (Writer writer = new FileWriter(dataFile)) {
             Map<String, TeamData> dataMap = new HashMap<>();
@@ -172,7 +181,7 @@ public class TeamManager {
                         new ArrayList<>(team.getMembers()),
                         team.getColor().name(),
                         team.getDescription(),
-                        team.getTextFormat().name(),
+                        team.getTextFormat().name(), // Сохраняем стиль
                         new HashMap<>(team.getMembers().stream()
                                 .collect(java.util.stream.Collectors.toMap(
                                         uuid -> uuid,
@@ -191,20 +200,27 @@ public class TeamManager {
     @SuppressWarnings("unchecked")
     public void loadTeams() {
         if (!dataFile.exists()) return;
+
         try (Reader reader = new FileReader(dataFile)) {
             JsonObject json = gson.fromJson(reader, JsonObject.class);
+
             for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
                 String teamName = entry.getKey();
                 JsonObject teamData = entry.getValue().getAsJsonObject();
+
                 UUID leader = UUID.fromString(teamData.get("leader").getAsString());
                 Team team = new Team(teamName, leader);
 
+                // Загружаем участников
                 JsonArray membersArray = teamData.get("members").getAsJsonArray();
                 for (JsonElement elem : membersArray) {
                     UUID member = UUID.fromString(elem.getAsString());
-                    if (!member.equals(leader)) team.addMember(member);
+                    if (!member.equals(leader)) {
+                        team.addMember(member);
+                    }
                 }
 
+                // Загружаем цвет
                 String colorName = teamData.get("color").getAsString();
                 try {
                     team.setColor(ChatColor.valueOf(colorName));
@@ -212,7 +228,7 @@ public class TeamManager {
                     team.setColor(ChatColor.WHITE);
                 }
 
-                // Загружаем формат текста
+                // Загружаем стиль текста
                 if (teamData.has("textFormat")) {
                     String formatName = teamData.get("textFormat").getAsString();
                     try {
@@ -220,10 +236,15 @@ public class TeamManager {
                     } catch (IllegalArgumentException e) {
                         team.setTextFormat(ChatColor.RESET);
                     }
+                } else {
+                    // Для старых файлов, где нет textFormat
+                    team.setTextFormat(ChatColor.RESET);
                 }
 
+                // Загружаем описание
                 team.setDescription(teamData.get("description").getAsString());
 
+                // Загружаем позывные
                 JsonObject prefixesObj = teamData.get("prefixes").getAsJsonObject();
                 for (Map.Entry<String, JsonElement> prefEntry : prefixesObj.entrySet()) {
                     UUID player = UUID.fromString(prefEntry.getKey());
@@ -235,7 +256,7 @@ public class TeamManager {
                     playerTeamMap.put(member, teamName);
                 }
             }
-            plugin.getLogger().info("Loaded " + teams.size() + " teams from file");
+            plugin.getLogger().info("Загружено " + teams.size() + " команд из файла");
         } catch (IOException | JsonSyntaxException e) {
             plugin.getLogger().severe("Could not load teams: " + e.getMessage());
         }
@@ -245,12 +266,17 @@ public class TeamManager {
         return teams.values();
     }
 
+    public Map<UUID, String> getPlayerTeamMap() {
+        return new HashMap<>(playerTeamMap);
+    }
+
+    // -------- Вспомогательный класс для JSON --------
     private static class TeamData {
         private final UUID leader;
         private final List<UUID> members;
         private final String color;
         private final String description;
-        private final String textFormat;
+        private final String textFormat; // Новое поле
         private final Map<UUID, String> prefixes;
 
         public TeamData(UUID leader, List<UUID> members, String color,

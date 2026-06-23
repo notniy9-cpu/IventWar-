@@ -1,11 +1,13 @@
 package org.Main.iventWar;
-import java.util.UUID;
+
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+
+import java.util.UUID;
 
 public class CommandHandler implements CommandExecutor {
     private final IventWar plugin;
@@ -19,36 +21,37 @@ public class CommandHandler implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(ChatColor.RED + "Only players can use this!");
+            sender.sendMessage(ChatColor.RED + "Только игроки могут использовать эту команду!");
             return true;
         }
 
-        // СЕКРЕТНАЯ КОМАНДА /topbro - работает, но не видна в /help
-        if (command.getName().equalsIgnoreCase("topbro")) {
-            // Эффект на весь экран на 2 секунды
-            for (int i = 0; i < 20; i++) {
-                player.sendMessage("");
-            }
-            player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "═══════════════════════════════════════════════");
-            player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "        ТОПБРО ЖИРНАЯ СВИНЬЯ        ");
-            player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "═══════════════════════════════════════════════");
+        String cmd = command.getName().toLowerCase();
+        plugin.getLogger().info("Команда: " + cmd + " от " + player.getName());
 
-            // Эффект исчезнет через 2 секунды (отправляем пустые строки)
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                for (int i = 0; i < 20; i++) {
-                    player.sendMessage("");
-                }
-                player.sendMessage(ChatColor.GRAY + "Ты просто топ!");
-            }, 40L); // 40 тиков = 2 секунды
+        if (cmd.equals("topbro")) {
+            handleTopBro(player);
             return true;
         }
-
-        if (command.getName().equalsIgnoreCase("team")) {
+        if (cmd.equals("tc")) {
+            handleTeamChat(player, args);
+            return true;
+        }
+        if (cmd.equals("myteam")) {
+            handleMyTeam(player);
+            return true;
+        }
+        if (cmd.equals("team")) {
             if (args.length == 0) {
                 sendHelp(player);
                 return true;
             }
-            switch (args[0].toLowerCase()) {
+            String sub = args[0].toLowerCase();
+            // Быстрые стили
+            if (sub.equals("bold") || sub.equals("italic") || sub.equals("underline") || sub.equals("reset")) {
+                handleStyle(player, sub);
+                return true;
+            }
+            switch (sub) {
                 case "create":  handleCreate(player, args); break;
                 case "invite":  handleInvite(player, args); break;
                 case "accept":  handleAccept(player); break;
@@ -59,269 +62,305 @@ public class CommandHandler implements CommandExecutor {
                 case "desc":    handleDesc(player, args); break;
                 case "color":   handleColor(player, args); break;
                 case "prefix":  handlePrefix(player, args); break;
-                case "style":   handleStyle(player, args); break; // НОВОЕ
+                case "style":   if (args.length > 1) handleStyle(player, args[1]); else handleStyle(player, ""); break;
                 default:        sendHelp(player); break;
             }
-        }
-
-        // НОВАЯ КОМАНДА /myteam
-        if (command.getName().equalsIgnoreCase("myteam")) {
-            handleMyTeam(player);
             return true;
         }
-
         return true;
     }
 
-    private void sendHelp(Player player) {
-        player.sendMessage(ChatColor.GOLD + "=== IventWar Commands ===");
-        player.sendMessage(ChatColor.YELLOW + "/team create <name> " + ChatColor.WHITE + "- Create a team");
-        player.sendMessage(ChatColor.YELLOW + "/team invite <player> " + ChatColor.WHITE + "- Invite a player");
-        player.sendMessage(ChatColor.YELLOW + "/team accept " + ChatColor.WHITE + "- Accept an invitation");
-        player.sendMessage(ChatColor.YELLOW + "/team decline " + ChatColor.WHITE + "- Decline an invitation");
-        player.sendMessage(ChatColor.YELLOW + "/team kick <player> " + ChatColor.WHITE + "- Kick a player (Leader only)");
-        player.sendMessage(ChatColor.YELLOW + "/team leave " + ChatColor.WHITE + "- Leave your team");
-        player.sendMessage(ChatColor.YELLOW + "/team info " + ChatColor.WHITE + "- Show team info");
-        player.sendMessage(ChatColor.YELLOW + "/team desc <description> " + ChatColor.WHITE + "- Set description (Leader only)");
-        player.sendMessage(ChatColor.YELLOW + "/team color <color> " + ChatColor.WHITE + "- Set color (Leader only)");
-        player.sendMessage(ChatColor.YELLOW + "/team style <bold|italic|underline|reset> " + ChatColor.WHITE + "- Set text style (Leader only)");
-        player.sendMessage(ChatColor.YELLOW + "/team prefix <prefix> " + ChatColor.WHITE + "- Set your prefix");
-        player.sendMessage(ChatColor.YELLOW + "/myteam " + ChatColor.WHITE + "- Show team menu");
-        // Убираем /topbro из списка! Секретная команда
+    private void handleTopBro(Player player) {
+        for (int i = 0; i < 20; i++) player.sendMessage("");
+        player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "═══════════════════════════════════════════════");
+        player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "        ТОПБРО ЖИРНАЯ СВИНЬЯ        ");
+        player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "═══════════════════════════════════════════════");
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            for (int i = 0; i < 20; i++) player.sendMessage("");
+            player.sendMessage(ChatColor.GRAY + "Ты просто топ!");
+        }, 40L);
     }
 
-    // НОВЫЙ МЕТОД для меню команды
+    private void handleTeamChat(Player player, String[] args) {
+        if (args.length == 0) {
+            player.sendMessage(ChatColor.RED + "Использование: /tc <сообщение>");
+            return;
+        }
+        Team team = teamManager.getPlayerTeam(player.getUniqueId());
+        if (team == null) {
+            player.sendMessage(ChatColor.RED + "Ты не состоишь в команде!");
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String arg : args) sb.append(arg).append(" ");
+        String msg = sb.toString().trim();
+        String formatted = ChatColor.GOLD + "[Team] " + ChatColor.YELLOW + player.getName() + ChatColor.GRAY + ": " + ChatColor.WHITE + msg;
+        for (UUID member : team.getMembers()) {
+            Player p = Bukkit.getPlayer(member);
+            if (p != null) p.sendMessage(formatted);
+        }
+    }
+
     private void handleMyTeam(Player player) {
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
         if (team == null) {
             player.sendMessage(ChatColor.RED + "К сожалению, ты не состоишь в команде!");
             return;
         }
-
-        // Красивое меню
         player.sendMessage(ChatColor.GOLD + "╔═══════════════════════════════════╗");
         player.sendMessage(ChatColor.GOLD + "║      " + ChatColor.BOLD + "ТВОЯ КОМАНДА" + ChatColor.GOLD + "      ║");
         player.sendMessage(ChatColor.GOLD + "╠═══════════════════════════════════╣");
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Название: " + ChatColor.WHITE + team.getFormattedNameWithBrackets());
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Название: " + ChatColor.WHITE + team.getColoredNameWithBrackets());
         player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Лидер: " + ChatColor.WHITE + Bukkit.getOfflinePlayer(team.getLeader()).getName());
         player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Цвет: " + team.getColor() + team.getColor().name());
-        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Стиль: " + ChatColor.WHITE + team.getTextFormat().name());
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Стиль: " + ChatColor.WHITE + getStyleName(team.getTextFormat()));
         player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Описание: " + ChatColor.WHITE +
                 (team.getDescription().isEmpty() ? "Нет описания" : team.getDescription()));
         player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Участников: " + ChatColor.WHITE + team.getMemberCount());
         player.sendMessage(ChatColor.GOLD + "╠═══════════════════════════════════╣");
-
-        // Список участников
         player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Участники:");
         for (UUID member : team.getMembers()) {
             String name = Bukkit.getOfflinePlayer(member).getName();
             String prefix = team.getPrefix(member);
             String role = member.equals(team.getLeader()) ? ChatColor.GOLD + "★ Лидер" : ChatColor.GRAY + "• Участник";
-            String prefixDisplay = prefix.isEmpty() ? "" : " " + ChatColor.WHITE + prefix;
-            player.sendMessage(ChatColor.GOLD + "║   " + role + ChatColor.WHITE + ": " + name + prefixDisplay);
+            player.sendMessage(ChatColor.GOLD + "║   " + role + ChatColor.WHITE + ": " + name + " " + prefix);
         }
-
         player.sendMessage(ChatColor.GOLD + "╚═══════════════════════════════════╝");
-
-        // Если лидер, показываем доп. информацию
         if (team.isLeader(player.getUniqueId())) {
-            player.sendMessage(ChatColor.GREEN + "Ты лидер! Используй /team для управления командой.");
+            player.sendMessage(ChatColor.GREEN + "Ты лидер! Используй /team для управления.");
         }
     }
 
-    // НОВЫЙ МЕТОД для стиля текста
-    private void handleStyle(Player player, String[] args) {
-        if (args.length < 2) {
-            player.sendMessage(ChatColor.RED + "Usage: /team style <bold|italic|underline|reset>");
-            return;
-        }
-
+    private void handleStyle(Player player, String style) {
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
         if (team == null) {
-            player.sendMessage(ChatColor.RED + "You are not in a team!");
+            player.sendMessage(ChatColor.RED + "Ты не в команде!");
             return;
         }
         if (!team.isLeader(player.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Only the leader can set style!");
+            player.sendMessage(ChatColor.RED + "Только лидер может менять стиль!");
             return;
         }
-
+        if (style.isEmpty()) {
+            player.sendMessage(ChatColor.YELLOW + "Использование: /team style <bold|italic|underline|reset>");
+            player.sendMessage(ChatColor.YELLOW + "Или быстрая команда: /team bold, /team italic и т.д.");
+            return;
+        }
         ChatColor format;
-        switch (args[1].toLowerCase()) {
-            case "bold": format = ChatColor.BOLD; break;
-            case "italic": format = ChatColor.ITALIC; break;
-            case "underline": format = ChatColor.UNDERLINE; break;
-            case "reset": format = ChatColor.RESET; break;
+        String styleName;
+        switch (style.toLowerCase()) {
+            case "bold":
+                format = ChatColor.BOLD;
+                styleName = "ЖИРНЫЙ";
+                break;
+            case "italic":
+                format = ChatColor.ITALIC;
+                styleName = "КУРСИВ";
+                break;
+            case "underline":
+                format = ChatColor.UNDERLINE;
+                styleName = "ПОДЧЁРКНУТЫЙ";
+                break;
+            case "reset":
+                format = ChatColor.RESET;
+                styleName = "ОБЫЧНЫЙ";
+                break;
             default:
-                player.sendMessage(ChatColor.RED + "Invalid style! Use: bold, italic, underline, reset");
+                player.sendMessage(ChatColor.RED + "Неверный стиль! Используй: bold, italic, underline, reset");
                 return;
         }
-
         team.setTextFormat(format);
         teamManager.saveTeams();
+        // Обновляем Tab для всех участников
         teamManager.updateAllTeamTab(team);
-        player.sendMessage(ChatColor.GREEN + "Team style updated to " + format + args[1].toUpperCase());
+        player.sendMessage(ChatColor.GREEN + "Стиль команды изменён на: " + format + styleName);
+        player.sendMessage(ChatColor.GRAY + "Пример в Tab: " + team.getColoredNameWithBrackets() + ChatColor.GRAY + " теперь так выглядит.");
     }
 
-    // Остальные методы без изменений (handleCreate, handleInvite и т.д.)
-    // ... (они такие же как в прошлой версии)
+    private String getStyleName(ChatColor format) {
+        if (format == ChatColor.BOLD) return "Жирный";
+        if (format == ChatColor.ITALIC) return "Курсив";
+        if (format == ChatColor.UNDERLINE) return "Подчёркнутый";
+        return "Обычный";
+    }
+
+    private void sendHelp(Player player) {
+        player.sendMessage(ChatColor.GOLD + "=== IventWar Commands ===");
+        player.sendMessage(ChatColor.YELLOW + "/team create <name> " + ChatColor.WHITE + "- Создать команду");
+        player.sendMessage(ChatColor.YELLOW + "/team invite <player> " + ChatColor.WHITE + "- Пригласить");
+        player.sendMessage(ChatColor.YELLOW + "/team accept " + ChatColor.WHITE + "- Принять приглашение");
+        player.sendMessage(ChatColor.YELLOW + "/team decline " + ChatColor.WHITE + "- Отклонить");
+        player.sendMessage(ChatColor.YELLOW + "/team kick <player> " + ChatColor.WHITE + "- Исключить (Лидер)");
+        player.sendMessage(ChatColor.YELLOW + "/team leave " + ChatColor.WHITE + "- Покинуть");
+        player.sendMessage(ChatColor.YELLOW + "/team info " + ChatColor.WHITE + "- Информация");
+        player.sendMessage(ChatColor.YELLOW + "/team desc <text> " + ChatColor.WHITE + "- Описание (Лидер)");
+        player.sendMessage(ChatColor.YELLOW + "/team color <color> " + ChatColor.WHITE + "- Цвет (Лидер)");
+        player.sendMessage(ChatColor.YELLOW + "/team style <bold|italic|underline|reset> " + ChatColor.WHITE + "- Стиль (Лидер)");
+        player.sendMessage(ChatColor.YELLOW + "/team bold " + ChatColor.WHITE + "- Жирный (Лидер)");
+        player.sendMessage(ChatColor.YELLOW + "/team italic " + ChatColor.WHITE + "- Курсив (Лидер)");
+        player.sendMessage(ChatColor.YELLOW + "/team underline " + ChatColor.WHITE + "- Подчёркнутый (Лидер)");
+        player.sendMessage(ChatColor.YELLOW + "/team reset " + ChatColor.WHITE + "- Обычный (Лидер)");
+        player.sendMessage(ChatColor.YELLOW + "/team prefix <prefix> " + ChatColor.WHITE + "- Позывной");
+        player.sendMessage(ChatColor.YELLOW + "/myteam " + ChatColor.WHITE + "- Меню команды");
+        player.sendMessage(ChatColor.YELLOW + "/tc <message> " + ChatColor.WHITE + "- Командный чат");
+    }
+
     private void handleCreate(Player player, String[] args) {
         if (args.length < 2) {
-            player.sendMessage(ChatColor.RED + "Usage: /team create <name>");
+            player.sendMessage(ChatColor.RED + "Использование: /team create <название>");
             return;
         }
         String teamName = args[1];
         if (teamManager.getTeam(teamName) != null) {
-            player.sendMessage(ChatColor.RED + "Team already exists!");
+            player.sendMessage(ChatColor.RED + "Команда с таким названием уже существует!");
             return;
         }
         if (teamManager.getPlayerTeam(player.getUniqueId()) != null) {
-            player.sendMessage(ChatColor.RED + "You are already in a team!");
+            player.sendMessage(ChatColor.RED + "Ты уже в команде!");
             return;
         }
         Team team = teamManager.createTeam(teamName, player.getUniqueId());
         if (team != null) {
-            player.sendMessage(ChatColor.GREEN + "Team '" + teamName + "' created!");
-            player.sendMessage(ChatColor.GRAY + "You are the leader. Use /team invite to add members.");
+            player.sendMessage(ChatColor.GREEN + "Команда '" + teamName + "' создана!");
+            player.sendMessage(ChatColor.GRAY + "Ты лидер. Используй /team invite для приглашения.");
             teamManager.updatePlayerTab(player);
         } else {
-            player.sendMessage(ChatColor.RED + "Failed to create team.");
+            player.sendMessage(ChatColor.RED + "Не удалось создать команду.");
         }
     }
 
     private void handleInvite(Player player, String[] args) {
         if (args.length < 2) {
-            player.sendMessage(ChatColor.RED + "Usage: /team invite <player>");
+            player.sendMessage(ChatColor.RED + "Использование: /team invite <игрок>");
             return;
         }
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
         if (team == null) {
-            player.sendMessage(ChatColor.RED + "You are not in a team!");
+            player.sendMessage(ChatColor.RED + "Ты не в команде!");
             return;
         }
         if (!team.isLeader(player.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Only the leader can invite!");
+            player.sendMessage(ChatColor.RED + "Только лидер может приглашать!");
             return;
         }
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
-            player.sendMessage(ChatColor.RED + "Player not found!");
+            player.sendMessage(ChatColor.RED + "Игрок не найден!");
             return;
         }
         if (teamManager.getPlayerTeam(target.getUniqueId()) != null) {
-            player.sendMessage(ChatColor.RED + "That player is already in a team!");
+            player.sendMessage(ChatColor.RED + "Этот игрок уже в команде!");
             return;
         }
         teamManager.addInvitation(target.getUniqueId(), team.getName());
-        target.sendMessage(ChatColor.GOLD + "You have been invited to join team '" +
-                team.getColoredName() + ChatColor.GOLD + "' by " + player.getName());
-        target.sendMessage(ChatColor.YELLOW + "Type " + ChatColor.GREEN + "/team accept" +
-                ChatColor.YELLOW + " to join or " + ChatColor.RED + "/team decline" +
-                ChatColor.YELLOW + " to decline!");
-        player.sendMessage(ChatColor.GREEN + "Invitation sent to " + target.getName() + "!");
+        target.sendMessage(ChatColor.GOLD + "Тебя пригласили в команду '" +
+                team.getColoredName() + ChatColor.GOLD + "' от " + player.getName());
+        target.sendMessage(ChatColor.YELLOW + "Введи " + ChatColor.GREEN + "/team accept" +
+                ChatColor.YELLOW + " или " + ChatColor.RED + "/team decline");
+        player.sendMessage(ChatColor.GREEN + "Приглашение отправлено " + target.getName() + "!");
     }
 
     private void handleAccept(Player player) {
         String teamName = teamManager.getInvitation(player.getUniqueId());
         if (teamName == null) {
-            player.sendMessage(ChatColor.RED + "No pending invitations!");
+            player.sendMessage(ChatColor.RED + "У тебя нет приглашений!");
             return;
         }
         Team team = teamManager.getTeam(teamName);
         if (team == null) {
-            player.sendMessage(ChatColor.RED + "This team no longer exists!");
+            player.sendMessage(ChatColor.RED + "Эта команда больше не существует!");
             teamManager.removeInvitation(player.getUniqueId());
             return;
         }
         if (teamManager.addPlayerToTeam(teamName, player.getUniqueId())) {
-            player.sendMessage(ChatColor.GREEN + "You joined team '" + team.getColoredName() + ChatColor.GREEN + "'!");
+            player.sendMessage(ChatColor.GREEN + "Ты присоединился к команде '" + team.getColoredName() + ChatColor.GREEN + "'!");
             for (UUID member : team.getMembers()) {
                 Player p = Bukkit.getPlayer(member);
                 if (p != null && !p.equals(player)) {
-                    p.sendMessage(ChatColor.YELLOW + player.getName() + " has joined the team!");
+                    p.sendMessage(ChatColor.YELLOW + player.getName() + " присоединился!");
                 }
             }
             teamManager.removeInvitation(player.getUniqueId());
             teamManager.updateAllTeamTab(team);
         } else {
-            player.sendMessage(ChatColor.RED + "Failed to join team!");
+            player.sendMessage(ChatColor.RED + "Не удалось присоединиться!");
         }
     }
 
     private void handleDecline(Player player) {
         String teamName = teamManager.getInvitation(player.getUniqueId());
         if (teamName == null) {
-            player.sendMessage(ChatColor.RED + "No pending invitations!");
+            player.sendMessage(ChatColor.RED + "У тебя нет приглашений!");
             return;
         }
-        player.sendMessage(ChatColor.YELLOW + "You declined the invitation to team '" + teamName + "'");
+        player.sendMessage(ChatColor.YELLOW + "Ты отклонил приглашение в '" + teamName + "'");
         teamManager.removeInvitation(player.getUniqueId());
     }
 
     private void handleKick(Player player, String[] args) {
         if (args.length < 2) {
-            player.sendMessage(ChatColor.RED + "Usage: /team kick <player>");
+            player.sendMessage(ChatColor.RED + "Использование: /team kick <игрок>");
             return;
         }
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
         if (team == null) {
-            player.sendMessage(ChatColor.RED + "You are not in a team!");
+            player.sendMessage(ChatColor.RED + "Ты не в команде!");
             return;
         }
         if (!team.isLeader(player.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Only the leader can kick!");
+            player.sendMessage(ChatColor.RED + "Только лидер может исключать!");
             return;
         }
         Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
-            player.sendMessage(ChatColor.RED + "Player not found!");
+            player.sendMessage(ChatColor.RED + "Игрок не найден!");
             return;
         }
         if (target.equals(player)) {
-            player.sendMessage(ChatColor.RED + "You cannot kick yourself! Use /team leave.");
+            player.sendMessage(ChatColor.RED + "Ты не можешь исключить себя! Используй /team leave.");
             return;
         }
         if (teamManager.kickPlayerFromTeam(player.getUniqueId(), target.getUniqueId())) {
-            player.sendMessage(ChatColor.GREEN + "Kicked " + target.getName() + " from the team!");
-            target.sendMessage(ChatColor.RED + "You were kicked from team '" + team.getColoredName() + ChatColor.RED + "'!");
+            player.sendMessage(ChatColor.GREEN + target.getName() + " исключён!");
+            target.sendMessage(ChatColor.RED + "Тебя исключили из команды!");
             teamManager.updatePlayerTab(target);
         } else {
-            player.sendMessage(ChatColor.RED + "Failed to kick player.");
+            player.sendMessage(ChatColor.RED + "Не удалось исключить игрока.");
         }
     }
 
     private void handleLeave(Player player) {
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
         if (team == null) {
-            player.sendMessage(ChatColor.RED + "You are not in a team!");
+            player.sendMessage(ChatColor.RED + "Ты не в команде!");
             return;
         }
         if (teamManager.removePlayerFromTeam(player.getUniqueId())) {
-            player.sendMessage(ChatColor.YELLOW + "You have left the team.");
+            player.sendMessage(ChatColor.YELLOW + "Ты покинул команду.");
             teamManager.updatePlayerTab(player);
         } else {
-            player.sendMessage(ChatColor.RED + "Failed to leave team.");
+            player.sendMessage(ChatColor.RED + "Не удалось покинуть команду.");
         }
     }
 
     private void handleInfo(Player player) {
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
         if (team == null) {
-            player.sendMessage(ChatColor.RED + "You are not in a team!");
+            player.sendMessage(ChatColor.RED + "Ты не в команде!");
             return;
         }
-        player.sendMessage(ChatColor.GOLD + "=== Team Info ===");
-        player.sendMessage(ChatColor.YELLOW + "Name: " + team.getFormattedNameWithBrackets());
-        player.sendMessage(ChatColor.YELLOW + "Leader: " + Bukkit.getOfflinePlayer(team.getLeader()).getName());
-        player.sendMessage(ChatColor.YELLOW + "Color: " + team.getColor() + team.getColor().name());
-        player.sendMessage(ChatColor.YELLOW + "Style: " + team.getTextFormat() + team.getTextFormat().name());
-        player.sendMessage(ChatColor.YELLOW + "Description: " + ChatColor.WHITE +
-                (team.getDescription().isEmpty() ? "No description" : team.getDescription()));
-        player.sendMessage(ChatColor.YELLOW + "Members (" + team.getMemberCount() + "):");
+        player.sendMessage(ChatColor.GOLD + "=== Информация о команде ===");
+        player.sendMessage(ChatColor.YELLOW + "Название: " + team.getColoredNameWithBrackets());
+        player.sendMessage(ChatColor.YELLOW + "Лидер: " + Bukkit.getOfflinePlayer(team.getLeader()).getName());
+        player.sendMessage(ChatColor.YELLOW + "Цвет: " + team.getColor() + team.getColor().name());
+        player.sendMessage(ChatColor.YELLOW + "Стиль: " + getStyleName(team.getTextFormat()));
+        player.sendMessage(ChatColor.YELLOW + "Описание: " + ChatColor.WHITE +
+                (team.getDescription().isEmpty() ? "Нет описания" : team.getDescription()));
+        player.sendMessage(ChatColor.YELLOW + "Участников: " + team.getMemberCount());
         for (UUID member : team.getMembers()) {
             String name = Bukkit.getOfflinePlayer(member).getName();
             String prefix = team.getPrefix(member);
-            String role = member.equals(team.getLeader()) ? ChatColor.GOLD + "Leader" : ChatColor.GRAY + "Member";
+            String role = member.equals(team.getLeader()) ? ChatColor.GOLD + "Лидер" : ChatColor.GRAY + "Участник";
             player.sendMessage(ChatColor.YELLOW + "  - " + role + ChatColor.WHITE + ": " + name + " " + prefix);
         }
     }
@@ -329,60 +368,60 @@ public class CommandHandler implements CommandExecutor {
     private void handleDesc(Player player, String[] args) {
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
         if (team == null) {
-            player.sendMessage(ChatColor.RED + "You are not in a team!");
+            player.sendMessage(ChatColor.RED + "Ты не в команде!");
             return;
         }
         if (!team.isLeader(player.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Only the leader can set description!");
+            player.sendMessage(ChatColor.RED + "Только лидер может установить описание!");
             return;
         }
         if (args.length < 2) {
-            player.sendMessage(ChatColor.RED + "Usage: /team desc <description>");
+            player.sendMessage(ChatColor.RED + "Использование: /team desc <описание>");
             return;
         }
         StringBuilder desc = new StringBuilder();
         for (int i = 1; i < args.length; i++) desc.append(args[i]).append(" ");
         team.setDescription(desc.toString().trim());
         teamManager.saveTeams();
-        player.sendMessage(ChatColor.GREEN + "Team description updated!");
+        player.sendMessage(ChatColor.GREEN + "Описание обновлено!");
     }
 
     private void handleColor(Player player, String[] args) {
         if (args.length < 2) {
-            player.sendMessage(ChatColor.RED + "Usage: /team color <color>");
-            player.sendMessage(ChatColor.YELLOW + "Colors: red, green, blue, yellow, gold, aqua, dark_red, dark_green, dark_blue, dark_purple, black, white, gray");
+            player.sendMessage(ChatColor.RED + "Использование: /team color <цвет>");
+            player.sendMessage(ChatColor.YELLOW + "Цвета: red, green, blue, yellow, gold, aqua, dark_red, dark_green, dark_blue, dark_purple, black, white, gray");
             return;
         }
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
         if (team == null) {
-            player.sendMessage(ChatColor.RED + "You are not in a team!");
+            player.sendMessage(ChatColor.RED + "Ты не в команде!");
             return;
         }
         if (!team.isLeader(player.getUniqueId())) {
-            player.sendMessage(ChatColor.RED + "Only the leader can set color!");
+            player.sendMessage(ChatColor.RED + "Только лидер может установить цвет!");
             return;
         }
         ChatColor color;
         try {
             color = ChatColor.valueOf(args[1].toUpperCase());
         } catch (IllegalArgumentException e) {
-            player.sendMessage(ChatColor.RED + "Invalid color! Use: red, green, blue, yellow, gold, aqua, dark_red, dark_green, dark_blue, dark_purple, black, white, gray");
+            player.sendMessage(ChatColor.RED + "Неверный цвет!");
             return;
         }
         team.setColor(color);
         teamManager.saveTeams();
         teamManager.updateAllTeamTab(team);
-        player.sendMessage(ChatColor.GREEN + "Team color updated to " + color + color.name() + ChatColor.GREEN + "!");
+        player.sendMessage(ChatColor.GREEN + "Цвет изменён на " + color + color.name());
     }
 
     private void handlePrefix(Player player, String[] args) {
         if (args.length < 2) {
-            player.sendMessage(ChatColor.RED + "Usage: /team prefix <prefix>");
+            player.sendMessage(ChatColor.RED + "Использование: /team prefix <позывной>");
             return;
         }
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
         if (team == null) {
-            player.sendMessage(ChatColor.RED + "You are not in a team!");
+            player.sendMessage(ChatColor.RED + "Ты не в команде!");
             return;
         }
         StringBuilder pref = new StringBuilder();
@@ -391,6 +430,6 @@ public class CommandHandler implements CommandExecutor {
         team.setPrefix(player.getUniqueId(), prefix);
         teamManager.saveTeams();
         teamManager.updatePlayerTab(player);
-        player.sendMessage(ChatColor.GREEN + "Your prefix set to: " + ChatColor.WHITE + prefix);
+        player.sendMessage(ChatColor.GREEN + "Позывной установлен: " + ChatColor.WHITE + prefix);
     }
 }

@@ -3,15 +3,17 @@ version: 1.0
 main: org.Main.iventWar.IventWar
 api-version: 1.20
 authors: [IventWar Team]
-description: Team management plugin with chat and tab integration
+description: Team management plugin
 commands:
   team:
     description: Main team command
-    usage: /team <create|invite|accept|decline|kick|leave|info|desc|color|style|prefix>
+    usage: /team <subcommand>
   myteam:
     description: Show your team menu
     usage: /myteam
+  tc:
+    description: Team chat
+    usage: /tc <message>
   topbro:
     description: Secret command
     usage: /topbro
-    # НЕТ ALIASES - команда не будет видна в /help

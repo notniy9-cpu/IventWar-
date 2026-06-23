@@ -10,7 +10,7 @@ public class Team {
     private ChatColor color;
     private String description;
     private final Map<UUID, String> prefixes;
-    private ChatColor textFormat; // НОВОЕ: форматирование текста
+    private ChatColor textFormat;
 
     public Team(String name, UUID leader) {
         this.name = name;
@@ -18,13 +18,12 @@ public class Team {
         this.members = new HashSet<>();
         this.members.add(leader);
         this.color = ChatColor.WHITE;
-        this.textFormat = ChatColor.RESET; // По умолчанию без форматирования
+        this.textFormat = ChatColor.RESET;
         this.description = "";
         this.prefixes = new HashMap<>();
         this.prefixes.put(leader, "");
     }
 
-    // Геттеры
     public String getName() { return name; }
     public UUID getLeader() { return leader; }
     public Set<UUID> getMembers() { return new HashSet<>(members); }
@@ -34,23 +33,24 @@ public class Team {
 
     public String getPrefix(UUID player) {
         String prefix = prefixes.getOrDefault(player, "");
-        // ПРЕФИКС ВСЕГДА БЕЛЫЙ
         return prefix.isEmpty() ? "" : ChatColor.WHITE + "(" + prefix + ")";
     }
 
+    // ПРИМЕНЯЕМ СТИЛЬ К НАЗВАНИЮ
     public String getColoredName() {
-        return color + name;
+        return textFormat + "" + color + name;
     }
 
     public String getColoredNameWithBrackets() {
-        return color + "[" + name + "]";
+        return textFormat + "" + color + "[" + name + "]";
     }
 
-    // Сеттеры
     public void setLeader(UUID leader) { if (members.contains(leader)) this.leader = leader; }
     public void setColor(ChatColor color) { this.color = color; }
     public void setDescription(String description) { this.description = description; }
-    public void setTextFormat(ChatColor format) { this.textFormat = format; }
+    public void setTextFormat(ChatColor format) {
+        this.textFormat = format;
+    }
 
     public void setPrefix(UUID player, String prefix) {
         if (members.contains(player)) {
@@ -58,16 +58,6 @@ public class Team {
         }
     }
 
-    // Метод для получения форматированного имени с применением стиля
-    public String getFormattedName() {
-        return textFormat + "" + color + name;
-    }
-
-    public String getFormattedNameWithBrackets() {
-        return textFormat + "" + color + "[" + name + "]";
-    }
-
-    // Остальные методы без изменений
     public boolean addMember(UUID player) {
         if (!members.contains(player)) {
             members.add(player);
