@@ -36,7 +36,7 @@ public class Team {
         return prefix.isEmpty() ? "" : ChatColor.WHITE + "(" + prefix + ")";
     }
 
-    // ПРИМЕНЯЕМ СТИЛЬ К НАЗВАНИЮ
+    // ====== ПРИМЕНЯЕМ СТИЛЬ ======
     public String getColoredName() {
         return textFormat + "" + color + name;
     }
@@ -48,15 +48,8 @@ public class Team {
     public void setLeader(UUID leader) { if (members.contains(leader)) this.leader = leader; }
     public void setColor(ChatColor color) { this.color = color; }
     public void setDescription(String description) { this.description = description; }
-    public void setTextFormat(ChatColor format) {
-        this.textFormat = format;
-    }
-
-    public void setPrefix(UUID player, String prefix) {
-        if (members.contains(player)) {
-            prefixes.put(player, prefix);
-        }
-    }
+    public void setTextFormat(ChatColor format) { this.textFormat = format; }
+    public void setPrefix(UUID player, String prefix) { if (members.contains(player)) prefixes.put(player, prefix); }
 
     public boolean addMember(UUID player) {
         if (!members.contains(player)) {
@@ -66,7 +59,6 @@ public class Team {
         }
         return false;
     }
-
     public boolean removeMember(UUID player) {
         if (members.contains(player) && !player.equals(leader)) {
             members.remove(player);
@@ -75,7 +67,6 @@ public class Team {
         }
         return false;
     }
-
     public boolean isLeader(UUID player) { return leader.equals(player); }
     public boolean isMember(UUID player) { return members.contains(player); }
     public int getMemberCount() { return members.size(); }

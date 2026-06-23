@@ -24,13 +24,9 @@ public class TeamManager {
         this.pendingInvitations = new ConcurrentHashMap<>();
         this.dataFile = new File(plugin.getDataFolder(), "teams.json");
         this.gson = new GsonBuilder().setPrettyPrinting().create();
-
-        if (!plugin.getDataFolder().exists()) {
-            plugin.getDataFolder().mkdirs();
-        }
+        if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
     }
 
-    // -------- Основные методы --------
     public Team createTeam(String name, UUID leader) {
         if (teams.containsKey(name)) return null;
         if (playerTeamMap.containsKey(leader)) return null;
@@ -44,18 +40,14 @@ public class TeamManager {
     public boolean deleteTeam(String name) {
         Team team = teams.remove(name);
         if (team != null) {
-            for (UUID member : team.getMembers()) {
-                playerTeamMap.remove(member);
-            }
+            for (UUID member : team.getMembers()) playerTeamMap.remove(member);
             saveTeams();
             return true;
         }
         return false;
     }
 
-    public Team getTeam(String name) {
-        return teams.get(name);
-    }
+    public Team getTeam(String name) { return teams.get(name); }
 
     public Team getPlayerTeam(UUID player) {
         String teamName = playerTeamMap.get(player);
@@ -129,20 +121,11 @@ public class TeamManager {
         return false;
     }
 
-    // -------- Приглашения --------
-    public void addInvitation(UUID player, String teamName) {
-        pendingInvitations.put(player, teamName);
-    }
+    public void addInvitation(UUID player, String teamName) { pendingInvitations.put(player, teamName); }
+    public String getInvitation(UUID player) { return pendingInvitations.get(player); }
+    public void removeInvitation(UUID player) { pendingInvitations.remove(player); }
 
-    public String getInvitation(UUID player) {
-        return pendingInvitations.get(player);
-    }
-
-    public void removeInvitation(UUID player) {
-        pendingInvitations.remove(player);
-    }
-
-    // -------- Обновление Tab --------
+    // ====== ГЛАВНЫЙ МЕТОД ОБНОВЛЕНИЯ TAB ======
     public void updateAllTeamTab(Team team) {
         for (UUID member : team.getMembers()) {
             Player player = Bukkit.getPlayer(member);
@@ -158,19 +141,12 @@ public class TeamManager {
             player.setPlayerListName(player.getName());
             return;
         }
-
         String prefix = team.getPrefix(player.getUniqueId());
-        // Используем getColoredNameWithBrackets() который применяет стиль
         String displayName = team.getColoredNameWithBrackets() + " " + player.getName() + " " + prefix;
-
-        // Minecraft ограничивает длину имени в Tab до 64 символов
-        if (displayName.length() > 64) {
-            displayName = displayName.substring(0, 64);
-        }
+        if (displayName.length() > 64) displayName = displayName.substring(0, 64);
         player.setPlayerListName(displayName);
     }
 
-    // -------- Сохранение / Загрузка --------
     public void saveTeams() {
         try (Writer writer = new FileWriter(dataFile)) {
             Map<String, TeamData> dataMap = new HashMap<>();
@@ -181,7 +157,7 @@ public class TeamManager {
                         new ArrayList<>(team.getMembers()),
                         team.getColor().name(),
                         team.getDescription(),
-                        team.getTextFormat().name(), // Сохраняем стиль
+                        team.getTextFormat().name(),
                         new HashMap<>(team.getMembers().stream()
                                 .collect(java.util.stream.Collectors.toMap(
                                         uuid -> uuid,
@@ -200,51 +176,31 @@ public class TeamManager {
     @SuppressWarnings("unchecked")
     public void loadTeams() {
         if (!dataFile.exists()) return;
-
         try (Reader reader = new FileReader(dataFile)) {
             JsonObject json = gson.fromJson(reader, JsonObject.class);
-
             for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
                 String teamName = entry.getKey();
                 JsonObject teamData = entry.getValue().getAsJsonObject();
-
                 UUID leader = UUID.fromString(teamData.get("leader").getAsString());
                 Team team = new Team(teamName, leader);
 
-                // Загружаем участников
                 JsonArray membersArray = teamData.get("members").getAsJsonArray();
                 for (JsonElement elem : membersArray) {
                     UUID member = UUID.fromString(elem.getAsString());
-                    if (!member.equals(leader)) {
-                        team.addMember(member);
-                    }
+                    if (!member.equals(leader)) team.addMember(member);
                 }
 
-                // Загружаем цвет
                 String colorName = teamData.get("color").getAsString();
-                try {
-                    team.setColor(ChatColor.valueOf(colorName));
-                } catch (IllegalArgumentException e) {
-                    team.setColor(ChatColor.WHITE);
-                }
+                try { team.setColor(ChatColor.valueOf(colorName)); } catch (Exception e) { team.setColor(ChatColor.WHITE); }
 
-                // Загружаем стиль текста
                 if (teamData.has("textFormat")) {
-                    String formatName = teamData.get("textFormat").getAsString();
-                    try {
-                        team.setTextFormat(ChatColor.valueOf(formatName));
-                    } catch (IllegalArgumentException e) {
-                        team.setTextFormat(ChatColor.RESET);
-                    }
+                    try { team.setTextFormat(ChatColor.valueOf(teamData.get("textFormat").getAsString())); } catch (Exception e) { team.setTextFormat(ChatColor.RESET); }
                 } else {
-                    // Для старых файлов, где нет textFormat
                     team.setTextFormat(ChatColor.RESET);
                 }
 
-                // Загружаем описание
                 team.setDescription(teamData.get("description").getAsString());
 
-                // Загружаем позывные
                 JsonObject prefixesObj = teamData.get("prefixes").getAsJsonObject();
                 for (Map.Entry<String, JsonElement> prefEntry : prefixesObj.entrySet()) {
                     UUID player = UUID.fromString(prefEntry.getKey());
@@ -252,41 +208,25 @@ public class TeamManager {
                 }
 
                 teams.put(teamName, team);
-                for (UUID member : team.getMembers()) {
-                    playerTeamMap.put(member, teamName);
-                }
+                for (UUID member : team.getMembers()) playerTeamMap.put(member, teamName);
             }
-            plugin.getLogger().info("Загружено " + teams.size() + " команд из файла");
+            plugin.getLogger().info("Загружено " + teams.size() + " команд");
         } catch (IOException | JsonSyntaxException e) {
             plugin.getLogger().severe("Could not load teams: " + e.getMessage());
         }
     }
 
-    public Collection<Team> getAllTeams() {
-        return teams.values();
-    }
+    public Collection<Team> getAllTeams() { return teams.values(); }
 
-    public Map<UUID, String> getPlayerTeamMap() {
-        return new HashMap<>(playerTeamMap);
-    }
-
-    // -------- Вспомогательный класс для JSON --------
     private static class TeamData {
         private final UUID leader;
         private final List<UUID> members;
         private final String color;
         private final String description;
-        private final String textFormat; // Новое поле
+        private final String textFormat;
         private final Map<UUID, String> prefixes;
-
-        public TeamData(UUID leader, List<UUID> members, String color,
-                        String description, String textFormat, Map<UUID, String> prefixes) {
-            this.leader = leader;
-            this.members = members;
-            this.color = color;
-            this.description = description;
-            this.textFormat = textFormat;
-            this.prefixes = prefixes;
+        public TeamData(UUID leader, List<UUID> members, String color, String description, String textFormat, Map<UUID, String> prefixes) {
+            this.leader = leader; this.members = members; this.color = color; this.description = description; this.textFormat = textFormat; this.prefixes = prefixes;
         }
     }
 }

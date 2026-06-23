@@ -1,13 +1,11 @@
 package org.Main.iventWar;
-
+import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-
-import java.util.UUID;
 
 public class CommandHandler implements CommandExecutor {
     private final IventWar plugin;
@@ -21,37 +19,47 @@ public class CommandHandler implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(ChatColor.RED + "Только игроки могут использовать эту команду!");
+            sender.sendMessage(ChatColor.RED + "Только игроки могут использовать команды!");
             return true;
         }
 
         String cmd = command.getName().toLowerCase();
-        plugin.getLogger().info("Команда: " + cmd + " от " + player.getName());
 
+        // ====== СЕКРЕТНАЯ КОМАНДА ======
         if (cmd.equals("topbro")) {
             handleTopBro(player);
             return true;
         }
+
+        // ====== КОМАНДНЫЙ ЧАТ ======
         if (cmd.equals("tc")) {
             handleTeamChat(player, args);
             return true;
         }
-        if (cmd.equals("myteam")) {
+
+        // ====== МЕНЮ КОМАНДЫ (поддерживаем /myteam и /my team) ======
+        if (cmd.equals("myteam") || (cmd.equals("my") && args.length > 0 && args[0].equalsIgnoreCase("team"))) {
             handleMyTeam(player);
             return true;
         }
+
+        // ====== ОСНОВНАЯ КОМАНДА /team ======
         if (cmd.equals("team")) {
             if (args.length == 0) {
                 sendHelp(player);
                 return true;
             }
-            String sub = args[0].toLowerCase();
-            // Быстрые стили
-            if (sub.equals("bold") || sub.equals("italic") || sub.equals("underline") || sub.equals("reset")) {
-                handleStyle(player, sub);
+
+            String subCmd = args[0].toLowerCase();
+
+            // Быстрые команды стиля
+            if (subCmd.equals("bold") || subCmd.equals("italic") ||
+                    subCmd.equals("underline") || subCmd.equals("reset")) {
+                handleStyleQuick(player, subCmd);
                 return true;
             }
-            switch (sub) {
+
+            switch (subCmd) {
                 case "create":  handleCreate(player, args); break;
                 case "invite":  handleInvite(player, args); break;
                 case "accept":  handleAccept(player); break;
@@ -62,13 +70,14 @@ public class CommandHandler implements CommandExecutor {
                 case "desc":    handleDesc(player, args); break;
                 case "color":   handleColor(player, args); break;
                 case "prefix":  handlePrefix(player, args); break;
-                case "style":   if (args.length > 1) handleStyle(player, args[1]); else handleStyle(player, ""); break;
+                case "style":   handleStyle(player, args); break;
                 default:        sendHelp(player); break;
             }
-            return true;
         }
         return true;
     }
+
+    // ========== ОБРАБОТЧИКИ ==========
 
     private void handleTopBro(Player player) {
         for (int i = 0; i < 20; i++) player.sendMessage("");
@@ -91,10 +100,11 @@ public class CommandHandler implements CommandExecutor {
             player.sendMessage(ChatColor.RED + "Ты не состоишь в команде!");
             return;
         }
-        StringBuilder sb = new StringBuilder();
-        for (String arg : args) sb.append(arg).append(" ");
-        String msg = sb.toString().trim();
-        String formatted = ChatColor.GOLD + "[Team] " + ChatColor.YELLOW + player.getName() + ChatColor.GRAY + ": " + ChatColor.WHITE + msg;
+        StringBuilder message = new StringBuilder();
+        for (String arg : args) message.append(arg).append(" ");
+        String msg = message.toString().trim();
+        String formatted = ChatColor.GOLD + "[Team] " + ChatColor.YELLOW + player.getName() +
+                ChatColor.GRAY + ": " + ChatColor.WHITE + msg;
         for (UUID member : team.getMembers()) {
             Player p = Bukkit.getPlayer(member);
             if (p != null) p.sendMessage(formatted);
@@ -107,6 +117,7 @@ public class CommandHandler implements CommandExecutor {
             player.sendMessage(ChatColor.RED + "К сожалению, ты не состоишь в команде!");
             return;
         }
+
         player.sendMessage(ChatColor.GOLD + "╔═══════════════════════════════════╗");
         player.sendMessage(ChatColor.GOLD + "║      " + ChatColor.BOLD + "ТВОЯ КОМАНДА" + ChatColor.GOLD + "      ║");
         player.sendMessage(ChatColor.GOLD + "╠═══════════════════════════════════╣");
@@ -131,7 +142,17 @@ public class CommandHandler implements CommandExecutor {
         }
     }
 
-    private void handleStyle(Player player, String style) {
+    private void handleStyle(Player player, String[] args) {
+        if (args.length < 2) {
+            player.sendMessage(ChatColor.YELLOW + "Использование:");
+            player.sendMessage(ChatColor.YELLOW + "  /team style bold" + ChatColor.WHITE + " - Жирный");
+            player.sendMessage(ChatColor.YELLOW + "  /team style italic" + ChatColor.WHITE + " - Курсив");
+            player.sendMessage(ChatColor.YELLOW + "  /team style underline" + ChatColor.WHITE + " - Подчёркнутый");
+            player.sendMessage(ChatColor.YELLOW + "  /team style reset" + ChatColor.WHITE + " - Обычный");
+            player.sendMessage(ChatColor.YELLOW + "  /team bold" + ChatColor.WHITE + " - Быстрый способ");
+            return;
+        }
+
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
         if (team == null) {
             player.sendMessage(ChatColor.RED + "Ты не в команде!");
@@ -141,40 +162,33 @@ public class CommandHandler implements CommandExecutor {
             player.sendMessage(ChatColor.RED + "Только лидер может менять стиль!");
             return;
         }
-        if (style.isEmpty()) {
-            player.sendMessage(ChatColor.YELLOW + "Использование: /team style <bold|italic|underline|reset>");
-            player.sendMessage(ChatColor.YELLOW + "Или быстрая команда: /team bold, /team italic и т.д.");
-            return;
-        }
+
+        String style = args[1].toLowerCase();
         ChatColor format;
         String styleName;
-        switch (style.toLowerCase()) {
-            case "bold":
-                format = ChatColor.BOLD;
-                styleName = "ЖИРНЫЙ";
-                break;
-            case "italic":
-                format = ChatColor.ITALIC;
-                styleName = "КУРСИВ";
-                break;
-            case "underline":
-                format = ChatColor.UNDERLINE;
-                styleName = "ПОДЧЁРКНУТЫЙ";
-                break;
-            case "reset":
-                format = ChatColor.RESET;
-                styleName = "ОБЫЧНЫЙ";
-                break;
+        switch (style) {
+            case "bold":      format = ChatColor.BOLD;      styleName = "ЖИРНЫЙ"; break;
+            case "italic":    format = ChatColor.ITALIC;    styleName = "КУРСИВ"; break;
+            case "underline": format = ChatColor.UNDERLINE; styleName = "ПОДЧЁРКНУТЫЙ"; break;
+            case "reset":     format = ChatColor.RESET;     styleName = "ОБЫЧНЫЙ"; break;
             default:
                 player.sendMessage(ChatColor.RED + "Неверный стиль! Используй: bold, italic, underline, reset");
                 return;
         }
+
+        // Меняем стиль
         team.setTextFormat(format);
         teamManager.saveTeams();
-        // Обновляем Tab для всех участников
+
+        // ====== ГЛАВНОЕ: ОБНОВЛЯЕМ TAB ДЛЯ ВСЕХ УЧАСТНИКОВ ======
         teamManager.updateAllTeamTab(team);
+
         player.sendMessage(ChatColor.GREEN + "Стиль команды изменён на: " + format + styleName);
-        player.sendMessage(ChatColor.GRAY + "Пример в Tab: " + team.getColoredNameWithBrackets() + ChatColor.GRAY + " теперь так выглядит.");
+        player.sendMessage(ChatColor.GRAY + "Пример: " + team.getColoredNameWithBrackets() + ChatColor.GRAY + " теперь так выглядит!");
+    }
+
+    private void handleStyleQuick(Player player, String style) {
+        handleStyle(player, new String[]{"style", style});
     }
 
     private String getStyleName(ChatColor format) {
@@ -187,12 +201,12 @@ public class CommandHandler implements CommandExecutor {
     private void sendHelp(Player player) {
         player.sendMessage(ChatColor.GOLD + "=== IventWar Commands ===");
         player.sendMessage(ChatColor.YELLOW + "/team create <name> " + ChatColor.WHITE + "- Создать команду");
-        player.sendMessage(ChatColor.YELLOW + "/team invite <player> " + ChatColor.WHITE + "- Пригласить");
+        player.sendMessage(ChatColor.YELLOW + "/team invite <player> " + ChatColor.WHITE + "- Пригласить игрока");
         player.sendMessage(ChatColor.YELLOW + "/team accept " + ChatColor.WHITE + "- Принять приглашение");
-        player.sendMessage(ChatColor.YELLOW + "/team decline " + ChatColor.WHITE + "- Отклонить");
-        player.sendMessage(ChatColor.YELLOW + "/team kick <player> " + ChatColor.WHITE + "- Исключить (Лидер)");
-        player.sendMessage(ChatColor.YELLOW + "/team leave " + ChatColor.WHITE + "- Покинуть");
-        player.sendMessage(ChatColor.YELLOW + "/team info " + ChatColor.WHITE + "- Информация");
+        player.sendMessage(ChatColor.YELLOW + "/team decline " + ChatColor.WHITE + "- Отклонить приглашение");
+        player.sendMessage(ChatColor.YELLOW + "/team kick <player> " + ChatColor.WHITE + "- Исключить игрока (Лидер)");
+        player.sendMessage(ChatColor.YELLOW + "/team leave " + ChatColor.WHITE + "- Покинуть команду");
+        player.sendMessage(ChatColor.YELLOW + "/team info " + ChatColor.WHITE + "- Информация о команде");
         player.sendMessage(ChatColor.YELLOW + "/team desc <text> " + ChatColor.WHITE + "- Описание (Лидер)");
         player.sendMessage(ChatColor.YELLOW + "/team color <color> " + ChatColor.WHITE + "- Цвет (Лидер)");
         player.sendMessage(ChatColor.YELLOW + "/team style <bold|italic|underline|reset> " + ChatColor.WHITE + "- Стиль (Лидер)");
@@ -202,9 +216,11 @@ public class CommandHandler implements CommandExecutor {
         player.sendMessage(ChatColor.YELLOW + "/team reset " + ChatColor.WHITE + "- Обычный (Лидер)");
         player.sendMessage(ChatColor.YELLOW + "/team prefix <prefix> " + ChatColor.WHITE + "- Позывной");
         player.sendMessage(ChatColor.YELLOW + "/myteam " + ChatColor.WHITE + "- Меню команды");
+        player.sendMessage(ChatColor.YELLOW + "/my team " + ChatColor.WHITE + "- Меню команды (альтернатива)");
         player.sendMessage(ChatColor.YELLOW + "/tc <message> " + ChatColor.WHITE + "- Командный чат");
     }
 
+    // ====== ОСТАЛЬНЫЕ МЕТОДЫ (без изменений, но на русском) ======
     private void handleCreate(Player player, String[] args) {
         if (args.length < 2) {
             player.sendMessage(ChatColor.RED + "Использование: /team create <название>");

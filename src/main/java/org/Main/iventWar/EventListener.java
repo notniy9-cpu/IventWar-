@@ -31,7 +31,7 @@ public class EventListener implements Listener {
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        // nothing needed
+        // ничего не делаем
     }
 
     @EventHandler

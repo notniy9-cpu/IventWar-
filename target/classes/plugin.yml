@@ -8,16 +8,15 @@ commands:
   team:
     description: Main team command
     usage: /team <create|invite|accept|decline|kick|leave|info|desc|color|style|prefix>
-    aliases: []
+  my:
+    description: Team menu
+    usage: /my team
   myteam:
-    description: Show your team menu
+    description: Team menu (alternative)
     usage: /myteam
-    aliases: []
   tc:
     description: Team chat
     usage: /tc <message>
-    aliases: []
   topbro:
     description: Secret command
     usage: /topbro
-    aliases: []

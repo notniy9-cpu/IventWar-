@@ -12,15 +12,18 @@ public class IventWar extends JavaPlugin {
         teamManager = new TeamManager(this);
         teamManager.loadTeams();
         getCommand("team").setExecutor(new CommandHandler(this));
+        getCommand("my").setExecutor(new CommandHandler(this));
+        getCommand("myteam").setExecutor(new CommandHandler(this));
+        getCommand("tc").setExecutor(new CommandHandler(this));
         getCommand("topbro").setExecutor(new CommandHandler(this));
         getServer().getPluginManager().registerEvents(new EventListener(this), this);
-        getLogger().info("IventWar enabled!");
+        getLogger().info("IventWar включён!");
     }
 
     @Override
     public void onDisable() {
         if (teamManager != null) teamManager.saveTeams();
-        getLogger().info("IventWar disabled!");
+        getLogger().info("IventWar выключен!");
     }
 
     public static IventWar getInstance() { return instance; }
