@@ -1,0 +1,4 @@
+name: IventWar
+version: '1.0'
+main: org.Main.iventWar.IventWar
+api-version: '1.20'
