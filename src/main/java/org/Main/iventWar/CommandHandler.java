@@ -22,10 +22,27 @@ public class CommandHandler implements CommandExecutor {
             sender.sendMessage(ChatColor.RED + "Only players can use this!");
             return true;
         }
+
+        // СЕКРЕТНАЯ КОМАНДА /topbro - работает, но не видна в /help
         if (command.getName().equalsIgnoreCase("topbro")) {
-            player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "Топбро жирная свинья");
+            // Эффект на весь экран на 2 секунды
+            for (int i = 0; i < 20; i++) {
+                player.sendMessage("");
+            }
+            player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "═══════════════════════════════════════════════");
+            player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "        ТОПБРО ЖИРНАЯ СВИНЬЯ        ");
+            player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "═══════════════════════════════════════════════");
+
+            // Эффект исчезнет через 2 секунды (отправляем пустые строки)
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                for (int i = 0; i < 20; i++) {
+                    player.sendMessage("");
+                }
+                player.sendMessage(ChatColor.GRAY + "Ты просто топ!");
+            }, 40L); // 40 тиков = 2 секунды
             return true;
         }
+
         if (command.getName().equalsIgnoreCase("team")) {
             if (args.length == 0) {
                 sendHelp(player);
@@ -42,9 +59,17 @@ public class CommandHandler implements CommandExecutor {
                 case "desc":    handleDesc(player, args); break;
                 case "color":   handleColor(player, args); break;
                 case "prefix":  handlePrefix(player, args); break;
+                case "style":   handleStyle(player, args); break; // НОВОЕ
                 default:        sendHelp(player); break;
             }
         }
+
+        // НОВАЯ КОМАНДА /myteam
+        if (command.getName().equalsIgnoreCase("myteam")) {
+            handleMyTeam(player);
+            return true;
+        }
+
         return true;
     }
 
@@ -59,10 +84,87 @@ public class CommandHandler implements CommandExecutor {
         player.sendMessage(ChatColor.YELLOW + "/team info " + ChatColor.WHITE + "- Show team info");
         player.sendMessage(ChatColor.YELLOW + "/team desc <description> " + ChatColor.WHITE + "- Set description (Leader only)");
         player.sendMessage(ChatColor.YELLOW + "/team color <color> " + ChatColor.WHITE + "- Set color (Leader only)");
+        player.sendMessage(ChatColor.YELLOW + "/team style <bold|italic|underline|reset> " + ChatColor.WHITE + "- Set text style (Leader only)");
         player.sendMessage(ChatColor.YELLOW + "/team prefix <prefix> " + ChatColor.WHITE + "- Set your prefix");
-        player.sendMessage(ChatColor.GOLD + "/topbro " + ChatColor.WHITE + "- Special command");
+        player.sendMessage(ChatColor.YELLOW + "/myteam " + ChatColor.WHITE + "- Show team menu");
+        // Убираем /topbro из списка! Секретная команда
     }
 
+    // НОВЫЙ МЕТОД для меню команды
+    private void handleMyTeam(Player player) {
+        Team team = teamManager.getPlayerTeam(player.getUniqueId());
+        if (team == null) {
+            player.sendMessage(ChatColor.RED + "К сожалению, ты не состоишь в команде!");
+            return;
+        }
+
+        // Красивое меню
+        player.sendMessage(ChatColor.GOLD + "╔═══════════════════════════════════╗");
+        player.sendMessage(ChatColor.GOLD + "║      " + ChatColor.BOLD + "ТВОЯ КОМАНДА" + ChatColor.GOLD + "      ║");
+        player.sendMessage(ChatColor.GOLD + "╠═══════════════════════════════════╣");
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Название: " + ChatColor.WHITE + team.getFormattedNameWithBrackets());
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Лидер: " + ChatColor.WHITE + Bukkit.getOfflinePlayer(team.getLeader()).getName());
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Цвет: " + team.getColor() + team.getColor().name());
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Стиль: " + ChatColor.WHITE + team.getTextFormat().name());
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Описание: " + ChatColor.WHITE +
+                (team.getDescription().isEmpty() ? "Нет описания" : team.getDescription()));
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Участников: " + ChatColor.WHITE + team.getMemberCount());
+        player.sendMessage(ChatColor.GOLD + "╠═══════════════════════════════════╣");
+
+        // Список участников
+        player.sendMessage(ChatColor.GOLD + "║ " + ChatColor.YELLOW + "Участники:");
+        for (UUID member : team.getMembers()) {
+            String name = Bukkit.getOfflinePlayer(member).getName();
+            String prefix = team.getPrefix(member);
+            String role = member.equals(team.getLeader()) ? ChatColor.GOLD + "★ Лидер" : ChatColor.GRAY + "• Участник";
+            String prefixDisplay = prefix.isEmpty() ? "" : " " + ChatColor.WHITE + prefix;
+            player.sendMessage(ChatColor.GOLD + "║   " + role + ChatColor.WHITE + ": " + name + prefixDisplay);
+        }
+
+        player.sendMessage(ChatColor.GOLD + "╚═══════════════════════════════════╝");
+
+        // Если лидер, показываем доп. информацию
+        if (team.isLeader(player.getUniqueId())) {
+            player.sendMessage(ChatColor.GREEN + "Ты лидер! Используй /team для управления командой.");
+        }
+    }
+
+    // НОВЫЙ МЕТОД для стиля текста
+    private void handleStyle(Player player, String[] args) {
+        if (args.length < 2) {
+            player.sendMessage(ChatColor.RED + "Usage: /team style <bold|italic|underline|reset>");
+            return;
+        }
+
+        Team team = teamManager.getPlayerTeam(player.getUniqueId());
+        if (team == null) {
+            player.sendMessage(ChatColor.RED + "You are not in a team!");
+            return;
+        }
+        if (!team.isLeader(player.getUniqueId())) {
+            player.sendMessage(ChatColor.RED + "Only the leader can set style!");
+            return;
+        }
+
+        ChatColor format;
+        switch (args[1].toLowerCase()) {
+            case "bold": format = ChatColor.BOLD; break;
+            case "italic": format = ChatColor.ITALIC; break;
+            case "underline": format = ChatColor.UNDERLINE; break;
+            case "reset": format = ChatColor.RESET; break;
+            default:
+                player.sendMessage(ChatColor.RED + "Invalid style! Use: bold, italic, underline, reset");
+                return;
+        }
+
+        team.setTextFormat(format);
+        teamManager.saveTeams();
+        teamManager.updateAllTeamTab(team);
+        player.sendMessage(ChatColor.GREEN + "Team style updated to " + format + args[1].toUpperCase());
+    }
+
+    // Остальные методы без изменений (handleCreate, handleInvite и т.д.)
+    // ... (они такие же как в прошлой версии)
     private void handleCreate(Player player, String[] args) {
         if (args.length < 2) {
             player.sendMessage(ChatColor.RED + "Usage: /team create <name>");
@@ -209,9 +311,10 @@ public class CommandHandler implements CommandExecutor {
             return;
         }
         player.sendMessage(ChatColor.GOLD + "=== Team Info ===");
-        player.sendMessage(ChatColor.YELLOW + "Name: " + team.getColoredName());
+        player.sendMessage(ChatColor.YELLOW + "Name: " + team.getFormattedNameWithBrackets());
         player.sendMessage(ChatColor.YELLOW + "Leader: " + Bukkit.getOfflinePlayer(team.getLeader()).getName());
         player.sendMessage(ChatColor.YELLOW + "Color: " + team.getColor() + team.getColor().name());
+        player.sendMessage(ChatColor.YELLOW + "Style: " + team.getTextFormat() + team.getTextFormat().name());
         player.sendMessage(ChatColor.YELLOW + "Description: " + ChatColor.WHITE +
                 (team.getDescription().isEmpty() ? "No description" : team.getDescription()));
         player.sendMessage(ChatColor.YELLOW + "Members (" + team.getMemberCount() + "):");
@@ -219,8 +322,7 @@ public class CommandHandler implements CommandExecutor {
             String name = Bukkit.getOfflinePlayer(member).getName();
             String prefix = team.getPrefix(member);
             String role = member.equals(team.getLeader()) ? ChatColor.GOLD + "Leader" : ChatColor.GRAY + "Member";
-            player.sendMessage(ChatColor.YELLOW + "  - " + role + ChatColor.WHITE + ": " + name +
-                    (prefix.isEmpty() ? "" : ChatColor.GRAY + " (" + prefix + ")"));
+            player.sendMessage(ChatColor.YELLOW + "  - " + role + ChatColor.WHITE + ": " + name + " " + prefix);
         }
     }
 

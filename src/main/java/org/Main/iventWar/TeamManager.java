@@ -22,7 +22,7 @@ public class TeamManager {
         this.teams = new ConcurrentHashMap<>();
         this.playerTeamMap = new ConcurrentHashMap<>();
         this.pendingInvitations = new ConcurrentHashMap<>();
-        this.dataFile = new File(plugin.getDataFolder(), "teams.json"); // <-- БЕЗ "child:"
+        this.dataFile = new File(plugin.getDataFolder(), "teams.json");
         this.gson = new GsonBuilder().setPrettyPrinting().create();
 
         if (!plugin.getDataFolder().exists()) {
@@ -30,7 +30,6 @@ public class TeamManager {
         }
     }
 
-    // -------- Основные методы --------
     public Team createTeam(String name, UUID leader) {
         if (teams.containsKey(name)) return null;
         if (playerTeamMap.containsKey(leader)) return null;
@@ -129,7 +128,6 @@ public class TeamManager {
         return false;
     }
 
-    // -------- Приглашения --------
     public void addInvitation(UUID player, String teamName) {
         pendingInvitations.put(player, teamName);
     }
@@ -142,7 +140,6 @@ public class TeamManager {
         pendingInvitations.remove(player);
     }
 
-    // -------- Обновление Tab --------
     public void updateAllTeamTab(Team team) {
         for (UUID member : team.getMembers()) {
             Player player = Bukkit.getPlayer(member);
@@ -159,13 +156,12 @@ public class TeamManager {
             return;
         }
         String prefix = team.getPrefix(player.getUniqueId());
-        String prefixDisplay = prefix.isEmpty() ? "" : " (" + prefix + ")";
-        String displayName = team.getColoredNameWithBrackets() + " " + player.getName() + prefixDisplay;
+        // Префикс уже белый, просто добавляем
+        String displayName = team.getFormattedNameWithBrackets() + " " + player.getName() + " " + prefix;
         if (displayName.length() > 64) displayName = displayName.substring(0, 64);
         player.setPlayerListName(displayName);
     }
 
-    // -------- Сохранение / загрузка (используем Gson) --------
     public void saveTeams() {
         try (Writer writer = new FileWriter(dataFile)) {
             Map<String, TeamData> dataMap = new HashMap<>();
@@ -176,6 +172,7 @@ public class TeamManager {
                         new ArrayList<>(team.getMembers()),
                         team.getColor().name(),
                         team.getDescription(),
+                        team.getTextFormat().name(),
                         new HashMap<>(team.getMembers().stream()
                                 .collect(java.util.stream.Collectors.toMap(
                                         uuid -> uuid,
@@ -185,16 +182,17 @@ public class TeamManager {
                 );
                 dataMap.put(entry.getKey(), data);
             }
-            gson.toJson(dataMap, writer);   // <-- метод toJson
+            gson.toJson(dataMap, writer);
         } catch (IOException e) {
             plugin.getLogger().severe("Could not save teams: " + e.getMessage());
         }
     }
 
+    @SuppressWarnings("unchecked")
     public void loadTeams() {
         if (!dataFile.exists()) return;
         try (Reader reader = new FileReader(dataFile)) {
-            JsonObject json = gson.fromJson(reader, JsonObject.class);   // <-- метод fromJson
+            JsonObject json = gson.fromJson(reader, JsonObject.class);
             for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
                 String teamName = entry.getKey();
                 JsonObject teamData = entry.getValue().getAsJsonObject();
@@ -212,6 +210,16 @@ public class TeamManager {
                     team.setColor(ChatColor.valueOf(colorName));
                 } catch (IllegalArgumentException e) {
                     team.setColor(ChatColor.WHITE);
+                }
+
+                // Загружаем формат текста
+                if (teamData.has("textFormat")) {
+                    String formatName = teamData.get("textFormat").getAsString();
+                    try {
+                        team.setTextFormat(ChatColor.valueOf(formatName));
+                    } catch (IllegalArgumentException e) {
+                        team.setTextFormat(ChatColor.RESET);
+                    }
                 }
 
                 team.setDescription(teamData.get("description").getAsString());
@@ -237,20 +245,21 @@ public class TeamManager {
         return teams.values();
     }
 
-    // -------- Вспомогательный класс для JSON --------
     private static class TeamData {
         private final UUID leader;
         private final List<UUID> members;
         private final String color;
         private final String description;
+        private final String textFormat;
         private final Map<UUID, String> prefixes;
 
         public TeamData(UUID leader, List<UUID> members, String color,
-                        String description, Map<UUID, String> prefixes) {
+                        String description, String textFormat, Map<UUID, String> prefixes) {
             this.leader = leader;
             this.members = members;
             this.color = color;
             this.description = description;
+            this.textFormat = textFormat;
             this.prefixes = prefixes;
         }
     }
