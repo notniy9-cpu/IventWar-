@@ -100,7 +100,7 @@ public class CommandHandler implements CommandExecutor {
         return true;
     }
 
-    // ---------- Обработчики (без изменений) ----------
+    // ---------- Обработчики (все вызовы updatePlayerTab заменены на updatePlayerDisplay) ----------
     private void handleTopBro(Player player) {
         for (int i = 0; i < 20; i++) player.sendMessage("");
         player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "═══════════════════════════════════════════════");
@@ -153,7 +153,6 @@ public class CommandHandler implements CommandExecutor {
         else if (team.isHelper(player.getUniqueId())) player.sendMessage(ChatColor.AQUA + "Ты помощник!");
     }
 
-    // ----- Команды управления командой (без изменений) -----
     private void handleCreate(Player player, String[] args) {
         if (args.length < 2) { player.sendMessage(ChatColor.RED + "Использование: /team create <название>"); return; }
         String teamName = args[1];
@@ -162,7 +161,7 @@ public class CommandHandler implements CommandExecutor {
         Team team = teamManager.createTeam(teamName, player.getUniqueId());
         if (team != null) {
             player.sendMessage(ChatColor.GREEN + "Команда '" + teamName + "' создана!");
-            teamManager.updatePlayerTab(player);
+            teamManager.updatePlayerDisplay(player);
         } else player.sendMessage(ChatColor.RED + "Не удалось создать команду.");
     }
 
@@ -217,7 +216,7 @@ public class CommandHandler implements CommandExecutor {
         if (teamManager.kickPlayerFromTeam(player.getUniqueId(), target.getUniqueId())) {
             player.sendMessage(ChatColor.GREEN + target.getName() + " исключён!");
             target.sendMessage(ChatColor.RED + "Тебя исключили из команды!");
-            teamManager.updatePlayerTab(target);
+            teamManager.updatePlayerDisplay(target);
         } else player.sendMessage(ChatColor.RED + "Не удалось исключить игрока.");
     }
 
@@ -226,7 +225,7 @@ public class CommandHandler implements CommandExecutor {
         if (team == null) { player.sendMessage(ChatColor.RED + "Ты не в команде!"); return; }
         if (teamManager.removePlayerFromTeam(player.getUniqueId())) {
             player.sendMessage(ChatColor.YELLOW + "Ты покинул команду.");
-            teamManager.updatePlayerTab(player);
+            teamManager.updatePlayerDisplay(player);
         } else player.sendMessage(ChatColor.RED + "Не удалось покинуть команду.");
     }
 
@@ -291,7 +290,7 @@ public class CommandHandler implements CommandExecutor {
         String prefix = pref.toString().trim();
         team.setPrefix(player.getUniqueId(), prefix);
         teamManager.saveTeams();
-        teamManager.updatePlayerTab(player);
+        teamManager.updatePlayerDisplay(player);
         player.sendMessage(ChatColor.GREEN + "Позывной установлен: " + ChatColor.WHITE + prefix);
     }
 

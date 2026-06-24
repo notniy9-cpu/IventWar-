@@ -170,30 +170,43 @@ public class TeamManager {
     public String getInvitation(UUID player) { return pendingInvitations.get(player); }
     public void removeInvitation(UUID player) { pendingInvitations.remove(player); }
 
+    // Обновление таба и отображения над головой
     public void updateAllTeamTab(Team team) {
         for (UUID member : team.getMembers()) {
             Player player = Bukkit.getPlayer(member);
-            if (player != null) updatePlayerTab(player);
+            if (player != null) updatePlayerDisplay(player);
         }
     }
 
-    public void updatePlayerTab(Player player) {
+    public void updatePlayerDisplay(Player player) {
         Team team = getPlayerTeam(player.getUniqueId());
         if (team == null) {
             player.setPlayerListName(player.getName());
+            player.setCustomName(null);
+            player.setCustomNameVisible(false);
             return;
         }
-        String prefix = team.getPrefix(player.getUniqueId());
+        String prefix = team.getPrefix(player.getUniqueId()); // уже со скобками
         String displayName = team.getColoredNameWithBrackets() + " " + player.getName() + " " + prefix;
         if (displayName.length() > 64) displayName = displayName.substring(0, 64);
         player.setPlayerListName(displayName);
+
+        // Отображение над головой
+        String nameTag = team.getColoredNameWithBrackets() + " " + player.getName() + " " + prefix;
+        player.setCustomName(nameTag);
+        player.setCustomNameVisible(true);
     }
 
+    // Сохранение с использованием getRawPrefix
     public void saveTeams() {
         try (Writer writer = new FileWriter(dataFile)) {
             Map<String, TeamData> dataMap = new HashMap<>();
             for (Map.Entry<String, Team> entry : teams.entrySet()) {
                 Team team = entry.getValue();
+                Map<UUID, String> rawPrefixes = new HashMap<>();
+                for (UUID member : team.getMembers()) {
+                    rawPrefixes.put(member, team.getRawPrefix(member));
+                }
                 TeamData data = new TeamData(
                         team.getLeader(),
                         new ArrayList<>(team.getMembers()),
@@ -205,12 +218,7 @@ public class TeamManager {
                         ),
                         team.getColor().name(),
                         team.getDescription(),
-                        new HashMap<>(team.getMembers().stream()
-                                .collect(java.util.stream.Collectors.toMap(
-                                        uuid -> uuid,
-                                        uuid -> team.getPrefix(uuid)
-                                ))
-                        )
+                        rawPrefixes
                 );
                 dataMap.put(entry.getKey(), data);
             }
@@ -254,7 +262,8 @@ public class TeamManager {
                 JsonObject prefixesObj = teamData.get("prefixes").getAsJsonObject();
                 for (Map.Entry<String, JsonElement> prefEntry : prefixesObj.entrySet()) {
                     UUID player = UUID.fromString(prefEntry.getKey());
-                    team.setPrefix(player, prefEntry.getValue().getAsString());
+                    String rawPrefix = prefEntry.getValue().getAsString();
+                    team.setPrefix(player, rawPrefix); // сохраняем без скобок
                 }
 
                 teams.put(teamName, team);
@@ -274,7 +283,7 @@ public class TeamManager {
         private final Map<UUID, String> roles;
         private final String color;
         private final String description;
-        private final Map<UUID, String> prefixes;
+        private final Map<UUID, String> prefixes; // чистые префиксы
         public TeamData(UUID leader, List<UUID> members, Map<UUID, String> roles,
                         String color, String description, Map<UUID, String> prefixes) {
             this.leader = leader; this.members = members; this.roles = roles;

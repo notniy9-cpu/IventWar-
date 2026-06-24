@@ -28,7 +28,7 @@ public class EventListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
-        if (team != null) teamManager.updatePlayerTab(player);
+        if (team != null) teamManager.updatePlayerDisplay(player);
     }
 
     @EventHandler
