@@ -28,7 +28,11 @@ commands:
     description: Alias for /startevent
     usage: /startivent
     permission: iventwar.start
+  closeevent:
+    description: Force close active event with reason
+    usage: /closeEvent <reason>
+    permission: iventwar.start
 permissions:
   iventwar.start:
-    description: Allows to start events
+    description: Allows to start and close events
     default: op
