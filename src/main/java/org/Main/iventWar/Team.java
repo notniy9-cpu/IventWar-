@@ -25,32 +25,21 @@ public class Team {
         this.prefixes.put(leader, "");
     }
 
-    // ---------- Геттеры ----------
     public String getName() { return name; }
     public UUID getLeader() { return leader; }
     public Set<UUID> getMembers() { return new HashSet<>(members); }
     public ChatColor getColor() { return color; }
     public String getDescription() { return description; }
-    public String getRole(UUID player) {
-        return roles.getOrDefault(player, "member");
-    }
+    public String getRole(UUID player) { return roles.getOrDefault(player, "member"); }
 
-    // Префиксы серые
     public String getPrefix(UUID player) {
         String prefix = prefixes.getOrDefault(player, "");
         return prefix.isEmpty() ? "" : ChatColor.GRAY + "(" + prefix + ")";
     }
 
-    // Отображение названия (без шрифтов)
-    public String getColoredName() {
-        return color + name;
-    }
+    public String getColoredName() { return color + name; }
+    public String getColoredNameWithBrackets() { return color + "[" + name + "]"; }
 
-    public String getColoredNameWithBrackets() {
-        return color + "[" + name + "]";
-    }
-
-    // ---------- Сеттеры ----------
     public void setLeader(UUID leader) {
         if (members.contains(leader)) {
             this.leader = leader;
@@ -64,20 +53,14 @@ public class Team {
         if (members.contains(player)) prefixes.put(player, prefix);
     }
 
-    // ---------- Управление ролями ----------
     public void setRole(UUID player, String role) {
-        if (members.contains(player)) {
-            roles.put(player, role);
-        }
+        if (members.contains(player)) roles.put(player, role);
     }
 
     public boolean isLeader(UUID player) { return leader.equals(player); }
-    public boolean isHelper(UUID player) {
-        return roles.getOrDefault(player, "member").equals("helper");
-    }
+    public boolean isHelper(UUID player) { return roles.getOrDefault(player, "member").equals("helper"); }
     public boolean isMember(UUID player) { return members.contains(player); }
 
-    // ---------- Управление составом ----------
     public boolean addMember(UUID player) {
         if (!members.contains(player)) {
             members.add(player);

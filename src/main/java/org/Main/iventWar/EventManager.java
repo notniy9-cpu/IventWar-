@@ -14,7 +14,8 @@ public class EventManager {
     private int eventDuration;
     private int remainingSeconds;
     private List<String> selectedTeams;
-    private Map<String, Location> teamSpawnLocations; // координаты для каждой команды
+    private Map<String, Location> teamSpawnLocations;
+    private Location endSpawnLocation;
     private String weather;
     private String timeOfDay;
     private BukkitTask countdownTask;
@@ -27,6 +28,7 @@ public class EventManager {
         this.eventDuration = 0;
         this.selectedTeams = new ArrayList<>();
         this.teamSpawnLocations = new HashMap<>();
+        this.endSpawnLocation = null;
         this.weather = "clear";
         this.timeOfDay = "day";
     }
@@ -43,6 +45,9 @@ public class EventManager {
     public void setTeamSpawnLocation(String team, Location loc) { teamSpawnLocations.put(team, loc); }
     public void removeTeamSpawnLocation(String team) { teamSpawnLocations.remove(team); }
     public void clearAllSpawnLocations() { teamSpawnLocations.clear(); }
+    public Location getEndSpawnLocation() { return endSpawnLocation; }
+    public void setEndSpawnLocation(Location loc) { this.endSpawnLocation = loc; }
+    public void clearEndSpawnLocation() { this.endSpawnLocation = null; }
     public void setWeather(String weather) { this.weather = weather; }
     public String getWeather() { return weather; }
     public void setTimeOfDay(String time) { this.timeOfDay = time; }
@@ -64,7 +69,6 @@ public class EventManager {
 
         isEventActive = true;
 
-        // Обратный отсчёт 5-4-3-2-1
         countdownTask = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
             int count = 5;
             @Override
@@ -96,13 +100,10 @@ public class EventManager {
             if (team != null) {
                 for (UUID member : team.getMembers()) {
                     Player p = Bukkit.getPlayer(member);
-                    if (p != null && p.isOnline()) {
-                        p.teleport(loc);
-                    }
+                    if (p != null && p.isOnline()) p.teleport(loc);
                 }
             }
         }
-        // Если для некоторых команд не указаны координаты – телепортируем на спавн мира
         for (String teamName : selectedTeams) {
             if (!teamSpawnLocations.containsKey(teamName)) {
                 Team team = plugin.getTeamManager().getTeam(teamName);
@@ -111,9 +112,7 @@ public class EventManager {
                     Location defaultSpawn = world.getSpawnLocation();
                     for (UUID member : team.getMembers()) {
                         Player p = Bukkit.getPlayer(member);
-                        if (p != null && p.isOnline()) {
-                            p.teleport(defaultSpawn);
-                        }
+                        if (p != null && p.isOnline()) p.teleport(defaultSpawn);
                     }
                 }
             }
@@ -123,51 +122,25 @@ public class EventManager {
     private void applyEventSettings() {
         for (World world : Bukkit.getWorlds()) {
             switch (weather.toLowerCase()) {
-                case "clear":
-                    world.setStorm(false);
-                    world.setThundering(false);
-                    break;
-                case "rain":
-                    world.setStorm(true);
-                    world.setThundering(false);
-                    break;
-                case "thunder":
-                    world.setStorm(true);
-                    world.setThundering(true);
-                    break;
-                default:
-                    world.setStorm(false);
-                    world.setThundering(false);
-                    break;
+                case "clear": world.setStorm(false); world.setThundering(false); break;
+                case "rain": world.setStorm(true); world.setThundering(false); break;
+                case "thunder": world.setStorm(true); world.setThundering(true); break;
+                default: world.setStorm(false); world.setThundering(false); break;
             }
             switch (timeOfDay.toLowerCase()) {
-                case "day":
-                    world.setTime(1000);
-                    break;
-                case "night":
-                    world.setTime(13000);
-                    break;
-                case "sunset":
-                    world.setTime(12000);
-                    break;
-                case "sunrise":
-                    world.setTime(0);
-                    break;
-                case "keep":
-                    break;
-                default:
-                    break;
+                case "day": world.setTime(1000); break;
+                case "night": world.setTime(13000); break;
+                case "sunset": world.setTime(12000); break;
+                case "sunrise": world.setTime(0); break;
+                case "keep": break;
+                default: break;
             }
         }
     }
 
     private void startEventTimer() {
         remainingSeconds = eventDuration * 60;
-
-        if (eventTimerTask != null && !eventTimerTask.isCancelled()) {
-            eventTimerTask.cancel();
-        }
-
+        if (eventTimerTask != null && !eventTimerTask.isCancelled()) eventTimerTask.cancel();
         eventTimerTask = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
             @Override
             public void run() {
@@ -176,67 +149,54 @@ public class EventManager {
                     if (eventTimerTask != null) eventTimerTask.cancel();
                     return;
                 }
-
-                if (remainingSeconds % 60 == 0) {
-                    int minutesLeft = remainingSeconds / 60;
-                    String msg = (minutesLeft > 0) ?
-                            "§eОсталось §6" + minutesLeft + " §eминут до окончания ивента!" :
-                            "§eОсталось менее минуты!";
-                    Bukkit.broadcastMessage(msg);
-                }
                 remainingSeconds--;
             }
         }, 0L, 20L);
     }
 
     private void startActionBarTimer() {
-        if (actionBarTask != null && !actionBarTask.isCancelled()) {
-            actionBarTask.cancel();
-        }
-
+        if (actionBarTask != null && !actionBarTask.isCancelled()) actionBarTask.cancel();
         actionBarTask = Bukkit.getScheduler().runTaskTimer(plugin, new Runnable() {
             @Override
             public void run() {
-                if (!isEventActive) {
-                    actionBarTask.cancel();
-                    return;
-                }
+                if (!isEventActive) { actionBarTask.cancel(); return; }
                 int totalSeconds = remainingSeconds;
                 int minutes = totalSeconds / 60;
                 int seconds = totalSeconds % 60;
                 String timeStr = String.format("§6§l⏳ %02d:%02d", minutes, seconds);
-                for (Player p : Bukkit.getOnlinePlayers()) {
-                    p.sendActionBar(timeStr);
-                }
+                for (Player p : Bukkit.getOnlinePlayers()) p.sendActionBar(timeStr);
             }
         }, 0L, 20L);
     }
 
-    // Метод для принудительного завершения с причиной
     public void forceCloseEvent(String reason) {
-        if (!isEventActive) {
-            Bukkit.broadcastMessage("§cИвент не активен!");
-            return;
-        }
-
-        // Выводим на весь экран сообщение всем игрокам
+        if (!isEventActive) { Bukkit.broadcastMessage("§cИвент не активен!"); return; }
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.sendTitle("§c§lИВЕНТ ЗАВЕРШЁН!", "§eПричина: §f" + reason, 10, 100, 10);
-            p.sendMessage("§cИвент завершён досрочно!");
-            p.sendMessage("§eПричина: §f" + reason);
+            p.sendMessage("§cИвент завершён досрочно! §eПричина: §f" + reason);
+            p.getInventory().clear();
+            if (endSpawnLocation != null) p.teleport(endSpawnLocation);
         }
-
-        // Полная очистка
         resetAll();
     }
 
-    private void resetAll() {
-        // Отменяем все таски
+    private void endEvent() {
+        isEventActive = false;
+        Bukkit.broadcastMessage("§a§lИвент завершён! §7Спасибо за участие!");
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.getInventory().clear();
+            if (endSpawnLocation != null) p.teleport(endSpawnLocation);
+        }
+        for (World world : Bukkit.getWorlds()) { world.setStorm(false); world.setThundering(false); }
         if (countdownTask != null && !countdownTask.isCancelled()) countdownTask.cancel();
         if (eventTimerTask != null && !eventTimerTask.isCancelled()) eventTimerTask.cancel();
         if (actionBarTask != null && !actionBarTask.isCancelled()) actionBarTask.cancel();
+    }
 
-        // Сбрасываем состояние
+    private void resetAll() {
+        if (countdownTask != null && !countdownTask.isCancelled()) countdownTask.cancel();
+        if (eventTimerTask != null && !eventTimerTask.isCancelled()) eventTimerTask.cancel();
+        if (actionBarTask != null && !actionBarTask.isCancelled()) actionBarTask.cancel();
         isEventActive = false;
         eventDuration = 0;
         remainingSeconds = 0;
@@ -244,41 +204,22 @@ public class EventManager {
         teamSpawnLocations.clear();
         weather = "clear";
         timeOfDay = "day";
-
-        // Восстанавливаем погоду
-        for (World world : Bukkit.getWorlds()) {
-            world.setStorm(false);
-            world.setThundering(false);
-        }
-
+        for (World world : Bukkit.getWorlds()) { world.setStorm(false); world.setThundering(false); }
         Bukkit.broadcastMessage("§aВсе настройки ивента сброшены.");
-    }
-
-    private void endEvent() {
-        isEventActive = false;
-        Bukkit.broadcastMessage("§a§lИвент завершён! §7Спасибо за участие!");
-
-        for (World world : Bukkit.getWorlds()) {
-            world.setStorm(false);
-            world.setThundering(false);
-        }
-
-        if (countdownTask != null && !countdownTask.isCancelled()) countdownTask.cancel();
-        if (eventTimerTask != null && !eventTimerTask.isCancelled()) eventTimerTask.cancel();
-        if (actionBarTask != null && !actionBarTask.isCancelled()) actionBarTask.cancel();
     }
 
     public void cancelEvent() {
         if (isEventActive) {
             isEventActive = false;
             Bukkit.broadcastMessage("§cИвент был отменён администратором!");
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                p.getInventory().clear();
+                if (endSpawnLocation != null) p.teleport(endSpawnLocation);
+            }
             if (countdownTask != null && !countdownTask.isCancelled()) countdownTask.cancel();
             if (eventTimerTask != null && !eventTimerTask.isCancelled()) eventTimerTask.cancel();
             if (actionBarTask != null && !actionBarTask.isCancelled()) actionBarTask.cancel();
-            for (World world : Bukkit.getWorlds()) {
-                world.setStorm(false);
-                world.setThundering(false);
-            }
+            for (World world : Bukkit.getWorlds()) { world.setStorm(false); world.setThundering(false); }
         }
     }
 }

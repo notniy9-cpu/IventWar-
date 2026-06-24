@@ -27,7 +27,6 @@ public class TeamManager {
         if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
     }
 
-    // -------- Основные методы --------
     public Team createTeam(String name, UUID leader) {
         if (teams.containsKey(name)) return null;
         if (playerTeamMap.containsKey(leader)) return null;
@@ -49,7 +48,6 @@ public class TeamManager {
     }
 
     public Team getTeam(String name) { return teams.get(name); }
-
     public Team getPlayerTeam(UUID player) {
         String teamName = playerTeamMap.get(player);
         return teamName != null ? teams.get(teamName) : null;
@@ -122,7 +120,6 @@ public class TeamManager {
         return false;
     }
 
-    // -------- Передача лидерства --------
     public boolean transferLeadership(UUID currentLeader, UUID newLeader) {
         String teamName = playerTeamMap.get(currentLeader);
         if (teamName == null) return false;
@@ -131,13 +128,11 @@ public class TeamManager {
         if (!team.isLeader(currentLeader)) return false;
         if (!team.isMember(newLeader)) return false;
         if (currentLeader.equals(newLeader)) return false;
-
         team.setRole(currentLeader, "helper");
         team.setLeader(newLeader);
         team.setRole(newLeader, "leader");
         saveTeams();
         updateAllTeamTab(team);
-
         Player oldLeader = Bukkit.getPlayer(currentLeader);
         Player newLeaderP = Bukkit.getPlayer(newLeader);
         if (oldLeader != null) oldLeader.sendMessage(ChatColor.YELLOW + "Ты передал лидерство " + Bukkit.getOfflinePlayer(newLeader).getName());
@@ -145,7 +140,6 @@ public class TeamManager {
         return true;
     }
 
-    // -------- Назначение/понижение ролей --------
     public boolean promoteToHelper(UUID leader, UUID target) {
         String teamName = playerTeamMap.get(leader);
         if (teamName == null) return false;
@@ -172,12 +166,10 @@ public class TeamManager {
         return true;
     }
 
-    // -------- Приглашения --------
     public void addInvitation(UUID player, String teamName) { pendingInvitations.put(player, teamName); }
     public String getInvitation(UUID player) { return pendingInvitations.get(player); }
     public void removeInvitation(UUID player) { pendingInvitations.remove(player); }
 
-    // -------- Обновление Tab --------
     public void updateAllTeamTab(Team team) {
         for (UUID member : team.getMembers()) {
             Player player = Bukkit.getPlayer(member);
@@ -197,7 +189,6 @@ public class TeamManager {
         player.setPlayerListName(displayName);
     }
 
-    // -------- Сохранение / Загрузка --------
     public void saveTeams() {
         try (Writer writer = new FileWriter(dataFile)) {
             Map<String, TeamData> dataMap = new HashMap<>();
@@ -243,9 +234,7 @@ public class TeamManager {
                 JsonArray membersArray = teamData.get("members").getAsJsonArray();
                 for (JsonElement elem : membersArray) {
                     UUID member = UUID.fromString(elem.getAsString());
-                    if (!member.equals(leader)) {
-                        team.addMember(member);
-                    }
+                    if (!member.equals(leader)) team.addMember(member);
                 }
 
                 if (teamData.has("roles")) {

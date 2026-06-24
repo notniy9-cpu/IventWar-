@@ -3,7 +3,7 @@ version: 1.0
 main: org.Main.iventWar.IventWar
 api-version: 1.20
 authors: [IventWar Team]
-description: Team management with event system
+description: Team management with event system and territory zones
 commands:
   team:
     description: Main team command
@@ -21,18 +21,17 @@ commands:
     description: Secret command
     usage: /topbro
   startevent:
-    description: Open event setup menu (admin only)
+    description: Open event setup menu (OP only)
     usage: /startevent
-    permission: iventwar.start
   startivent:
     description: Alias for /startevent
     usage: /startivent
-    permission: iventwar.start
   closeevent:
-    description: Force close active event with reason
+    description: Force close active event with reason (OP only)
     usage: /closeEvent <reason>
-    permission: iventwar.start
-permissions:
-  iventwar.start:
-    description: Allows to start and close events
-    default: op
+  createzone:
+    description: Create a territory zone (OP only)
+    usage: /createzone
+  zone:
+    description: List and manage zones (OP only)
+    usage: /zone
