@@ -14,12 +14,14 @@ public class CommandHandler implements CommandExecutor {
     private final TeamManager teamManager;
     private final EventGUI eventGUI;
     private final ZoneGUI zoneGUI;
+    private final AdminHubGUI adminHubGUI;
 
     public CommandHandler(IventWar plugin) {
         this.plugin = plugin;
         this.teamManager = plugin.getTeamManager();
         this.eventGUI = new EventGUI(plugin);
         this.zoneGUI = new ZoneGUI(plugin);
+        this.adminHubGUI = new AdminHubGUI(plugin);
     }
 
     @Override
@@ -68,6 +70,12 @@ public class CommandHandler implements CommandExecutor {
             return true;
         }
 
+        if (cmd.equals("adminhub")) {
+            if (!player.isOp()) { player.sendMessage(ChatColor.RED + "Нет прав!"); return true; }
+            adminHubGUI.openMenu(player);
+            return true;
+        }
+
         // ----- Основная команда /team -----
         if (cmd.equals("team")) {
             if (args.length == 0) { sendHelp(player); return true; }
@@ -92,7 +100,7 @@ public class CommandHandler implements CommandExecutor {
         return true;
     }
 
-    // ---------- ОБРАБОТЧИКИ ----------
+    // ---------- Обработчики (без изменений) ----------
     private void handleTopBro(Player player) {
         for (int i = 0; i < 20; i++) player.sendMessage("");
         player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "═══════════════════════════════════════════════");
@@ -354,6 +362,7 @@ public class CommandHandler implements CommandExecutor {
         player.sendMessage(ChatColor.YELLOW + "/startevent " + ChatColor.WHITE + "- Открыть меню ивента (OP)");
         player.sendMessage(ChatColor.YELLOW + "/closeEvent <reason> " + ChatColor.WHITE + "- Завершить ивент (OP)");
         player.sendMessage(ChatColor.YELLOW + "/createzone " + ChatColor.WHITE + "- Создать зону (OP)");
-        player.sendMessage(ChatColor.YELLOW + "/zone " + ChatColor.WHITE + "- Список зон с редактированием (OP)");
+        player.sendMessage(ChatColor.YELLOW + "/zone " + ChatColor.WHITE + "- Список зон (OP)");
+        player.sendMessage(ChatColor.YELLOW + "/adminhub " + ChatColor.WHITE + "- Админ-панель (OP)");
     }
 }

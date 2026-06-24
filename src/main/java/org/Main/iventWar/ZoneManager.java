@@ -45,6 +45,7 @@ public class ZoneManager {
         return null;
     }
 
+    // ----- ИСПРАВЛЕННАЯ ЛОГИКА ЗАХВАТА -----
     private void startCaptureTask() {
         new BukkitRunnable() {
             @Override
@@ -52,18 +53,20 @@ public class ZoneManager {
                 for (Zone zone : zones.values()) {
                     if (zone.getPlayersInZone().isEmpty()) continue;
 
+                    // Собираем игроков по командам
                     Map<String, List<UUID>> playersByTeam = new HashMap<>();
                     for (UUID uuid : zone.getPlayersInZone()) {
                         Player p = Bukkit.getPlayer(uuid);
                         if (p == null || !p.isOnline()) continue;
                         Team team = plugin.getTeamManager().getPlayerTeam(uuid);
                         String teamName = (team != null) ? team.getName() : null;
-                        if (teamName == null) continue;
+                        if (teamName == null) continue; // игрок без команды игнорируется
                         playersByTeam.computeIfAbsent(teamName, k -> new ArrayList<>()).add(uuid);
                     }
 
                     if (playersByTeam.isEmpty()) continue;
 
+                    // Находим доминирующую команду с наибольшим количеством
                     String dominantTeam = null;
                     int maxCount = 0;
                     for (Map.Entry<String, List<UUID>> entry : playersByTeam.entrySet()) {
@@ -73,23 +76,40 @@ public class ZoneManager {
                         }
                     }
 
+                    // Проверяем, является ли доминирующая команда строго большей, чем все остальные
+                    boolean isStrictlyDominant = true;
+                    for (Map.Entry<String, List<UUID>> entry : playersByTeam.entrySet()) {
+                        if (!entry.getKey().equals(dominantTeam)) {
+                            if (entry.getValue().size() >= maxCount) {
+                                isStrictlyDominant = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Если нет строгого доминирования – прогресс не идёт
+                    if (!isStrictlyDominant) {
+                        // Сбрасываем прогресс у всех игроков в зоне
+                        zone.clearProgress();
+                        continue;
+                    }
+
                     // Если зона уже принадлежит доминирующей команде – сбрасываем прогресс
                     if (zone.getOwnerTeam() != null && zone.getOwnerTeam().equals(dominantTeam)) {
                         zone.clearProgress();
                         continue;
                     }
 
-                    // Увеличиваем прогресс для всех игроков в зоне (не только доминирующей команды)
-                    // Но захват происходит, когда прогресс достигает максимума у игроков доминирующей команды
+                    // Увеличиваем прогресс для игроков доминирующей команды
                     boolean captured = false;
-                    for (UUID uuid : playersByTeam.getOrDefault(dominantTeam, new ArrayList<>())) {
+                    for (UUID uuid : playersByTeam.get(dominantTeam)) {
                         Player p = Bukkit.getPlayer(uuid);
                         if (p == null) continue;
                         int progress = zone.getProgress(p);
                         int newProgress = Math.min(progress + 1, zone.getCaptureTime());
                         zone.setProgress(p, newProgress);
 
-                        // Показываем прогресс ВСЕМ игрокам в зоне через ActionBar
+                        // Показываем прогресс всем игрокам в зоне
                         for (UUID allUuid : zone.getPlayersInZone()) {
                             Player allP = Bukkit.getPlayer(allUuid);
                             if (allP != null && allP.isOnline()) {
@@ -111,13 +131,13 @@ public class ZoneManager {
                             break;
                         }
                     }
-                    // Если захватили, очищаем прогресс у всех
                     if (captured) zone.clearProgress();
                 }
             }
         }.runTaskTimer(plugin, 0L, 20L);
     }
 
+    // ----- ОСТАЛЬНЫЕ МЕТОДЫ (без изменений) -----
     private void startParticleTask() {
         new BukkitRunnable() {
             @Override
@@ -165,7 +185,6 @@ public class ZoneManager {
                         int progress = zone.getProgress(p);
                         int percent = (progress * 100) / zone.getCaptureTime();
                         String ownerDisplay = (owner == null) ? "§7Нейтральная" : "§6" + owner;
-                        // Всегда показываем прогресс, даже если 0
                         String progressDisplay = (progress > 0) ? " §f| Захват: §e" + percent + "%" : "";
                         p.sendActionBar("§fЗона: §6" + zone.getName() + " §f| Владелец: " + ownerDisplay + progressDisplay);
                     }
