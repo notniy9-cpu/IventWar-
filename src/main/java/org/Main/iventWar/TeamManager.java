@@ -170,7 +170,6 @@ public class TeamManager {
     public String getInvitation(UUID player) { return pendingInvitations.get(player); }
     public void removeInvitation(UUID player) { pendingInvitations.remove(player); }
 
-    // Обновление таба и отображения над головой
     public void updateAllTeamTab(Team team) {
         for (UUID member : team.getMembers()) {
             Player player = Bukkit.getPlayer(member);
@@ -178,26 +177,31 @@ public class TeamManager {
         }
     }
 
+    // ===== ГЛАВНЫЙ МЕТОД ОБНОВЛЕНИЯ ОТОБРАЖЕНИЯ (ИСПРАВЛЕН) =====
     public void updatePlayerDisplay(Player player) {
         Team team = getPlayerTeam(player.getUniqueId());
         if (team == null) {
+            // Сбрасываем отображение, если игрок не в команде
             player.setPlayerListName(player.getName());
+            player.setDisplayName(player.getName());
             player.setCustomName(null);
             player.setCustomNameVisible(false);
             return;
         }
-        String prefix = team.getPrefix(player.getUniqueId()); // уже со скобками
-        String displayName = team.getColoredNameWithBrackets() + " " + player.getName() + " " + prefix;
-        if (displayName.length() > 64) displayName = displayName.substring(0, 64);
-        player.setPlayerListName(displayName);
 
-        // Отображение над головой
-        String nameTag = team.getColoredNameWithBrackets() + " " + player.getName() + " " + prefix;
-        player.setCustomName(nameTag);
+        String prefix = team.getPrefix(player.getUniqueId());
+        String fullName = team.getColoredNameWithBrackets() + " " + player.getName() + " " + prefix;
+
+        // Ограничиваем длину для таба (макс 64 символа)
+        String tabName = fullName.length() > 64 ? fullName.substring(0, 64) : fullName;
+
+        // Обновляем все возможные отображения
+        player.setPlayerListName(tabName);
+        player.setDisplayName(fullName);
+        player.setCustomName(fullName);
         player.setCustomNameVisible(true);
     }
 
-    // Сохранение с использованием getRawPrefix
     public void saveTeams() {
         try (Writer writer = new FileWriter(dataFile)) {
             Map<String, TeamData> dataMap = new HashMap<>();
@@ -263,7 +267,7 @@ public class TeamManager {
                 for (Map.Entry<String, JsonElement> prefEntry : prefixesObj.entrySet()) {
                     UUID player = UUID.fromString(prefEntry.getKey());
                     String rawPrefix = prefEntry.getValue().getAsString();
-                    team.setPrefix(player, rawPrefix); // сохраняем без скобок
+                    team.setPrefix(player, rawPrefix);
                 }
 
                 teams.put(teamName, team);
@@ -283,7 +287,7 @@ public class TeamManager {
         private final Map<UUID, String> roles;
         private final String color;
         private final String description;
-        private final Map<UUID, String> prefixes; // чистые префиксы
+        private final Map<UUID, String> prefixes;
         public TeamData(UUID leader, List<UUID> members, Map<UUID, String> roles,
                         String color, String description, Map<UUID, String> prefixes) {
             this.leader = leader; this.members = members; this.roles = roles;

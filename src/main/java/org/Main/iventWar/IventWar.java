@@ -33,7 +33,6 @@ public class IventWar extends JavaPlugin {
         getCommand("adminhub").setExecutor(new CommandHandler(this));
 
         getServer().getPluginManager().registerEvents(new EventListener(this), this);
-        // AdminHubGUI уже зарегистрирован в своем конструкторе
 
         getLogger().info("IventWar включён!");
         getLogger().info("Загружено зон: " + zoneManager.getZones().size());

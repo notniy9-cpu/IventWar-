@@ -10,7 +10,7 @@ public class Team {
     private final Map<UUID, String> roles;
     private ChatColor color;
     private String description;
-    private final Map<UUID, String> prefixes; // Храним чистый префикс без скобок
+    private final Map<UUID, String> prefixes;
 
     public Team(String name, UUID leader) {
         this.name = name;
@@ -44,8 +44,14 @@ public class Team {
         return prefixes.getOrDefault(player, "");
     }
 
-    public String getColoredName() { return color + name; }
-    public String getColoredNameWithBrackets() { return color + "[" + name + "]"; }
+    // Жирный шрифт для названия
+    public String getColoredName() {
+        return ChatColor.BOLD + "" + color + name;
+    }
+
+    public String getColoredNameWithBrackets() {
+        return ChatColor.BOLD + "" + color + "[" + name + "]";
+    }
 
     public void setLeader(UUID leader) {
         if (members.contains(leader)) {
@@ -58,7 +64,7 @@ public class Team {
     public void setDescription(String description) { this.description = description; }
     public void setPrefix(UUID player, String prefix) {
         if (members.contains(player)) {
-            prefixes.put(player, prefix); // Сохраняем без скобок
+            prefixes.put(player, prefix);
         }
     }
 

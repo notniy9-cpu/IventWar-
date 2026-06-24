@@ -11,6 +11,7 @@ org\Main\iventWar\IventWar.class
 org\Main\iventWar\ZoneGUI$InputType.class
 org\Main\iventWar\EventManager.class
 org\Main\iventWar\EventManager$2.class
+org\Main\iventWar\AdminHubGUI$ColorOption.class
 org\Main\iventWar\AdminHubGUI$InputType.class
 org\Main\iventWar\EventGUI.class
 org\Main\iventWar\ZoneManager$ZoneData.class
@@ -21,5 +22,4 @@ org\Main\iventWar\ZoneGUI$1.class
 org\Main\iventWar\AdminHubGUI.class
 org\Main\iventWar\EventGUI$InputType.class
 org\Main\iventWar\ZoneManager$3.class
-org\Main\iventWar\AdminHubGUI$1.class
 org\Main\iventWar\ZoneGUI.class
