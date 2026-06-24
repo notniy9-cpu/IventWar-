@@ -5,6 +5,7 @@ org\Main\iventWar\FontManager.class
 org\Main\iventWar\EventManager$EventSettings$TradeItem.class
 org\Main\iventWar\ZoneManager.class
 org\Main\iventWar\CommandHandler.class
+org\Main\iventWar\EventManager$8.class
 org\Main\iventWar\EventSettings$TradeItem.class
 org\Main\iventWar\EventSettings$LootItem.class
 org\Main\iventWar\ZoneManager$2.class
@@ -16,8 +17,9 @@ org\Main\iventWar\IventWar.class
 org\Main\iventWar\ZoneGUI$InputType.class
 org\Main\iventWar\EventManager.class
 org\Main\iventWar\EventManager$2.class
-org\Main\iventWar\AdminHubGUI$ColorOption.class
+org\Main\iventWar\EventManager$9.class
 org\Main\iventWar\AdminHubGUI$InputType.class
+org\Main\iventWar\EventManager$7.class
 org\Main\iventWar\EventSettings.class
 org\Main\iventWar\EventGUI.class
 org\Main\iventWar\EventManager$4.class

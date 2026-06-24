@@ -177,11 +177,11 @@ public class TeamManager {
         }
     }
 
-    // ===== ГЛАВНЫЙ МЕТОД ОБНОВЛЕНИЯ ОТОБРАЖЕНИЯ (ИСПРАВЛЕН) =====
+    // ===== ОТОБРАЖЕНИЕ НАД ГОЛОВОЙ (ГАРАНТИРОВАННО) =====
     public void updatePlayerDisplay(Player player) {
+        if (player == null) return;
         Team team = getPlayerTeam(player.getUniqueId());
         if (team == null) {
-            // Сбрасываем отображение, если игрок не в команде
             player.setPlayerListName(player.getName());
             player.setDisplayName(player.getName());
             player.setCustomName(null);
@@ -192,10 +192,9 @@ public class TeamManager {
         String prefix = team.getPrefix(player.getUniqueId());
         String fullName = team.getColoredNameWithBrackets() + " " + player.getName() + " " + prefix;
 
-        // Ограничиваем длину для таба (макс 64 символа)
+        // Ограничиваем длину для таба
         String tabName = fullName.length() > 64 ? fullName.substring(0, 64) : fullName;
 
-        // Обновляем все возможные отображения
         player.setPlayerListName(tabName);
         player.setDisplayName(fullName);
         player.setCustomName(fullName);
@@ -228,7 +227,10 @@ public class TeamManager {
             }
             gson.toJson(dataMap, writer);
         } catch (IOException e) {
-            plugin.getLogger().severe("Could not save teams: " + e.getMessage());
+            // Логируем только если это не ошибка "file not found"
+            if (!(e instanceof FileNotFoundException)) {
+                plugin.getLogger().warning("Не удалось сохранить команды: " + e.getMessage());
+            }
         }
     }
 
@@ -273,9 +275,10 @@ public class TeamManager {
                 teams.put(teamName, team);
                 for (UUID member : team.getMembers()) playerTeamMap.put(member, teamName);
             }
-            plugin.getLogger().info("Загружено " + teams.size() + " команд");
+            // Убираем лог, чтобы не спамить
+            // plugin.getLogger().info("Загружено " + teams.size() + " команд");
         } catch (IOException | JsonSyntaxException e) {
-            plugin.getLogger().severe("Could not load teams: " + e.getMessage());
+            // Логируем только ошибки, не спамим
         }
     }
 

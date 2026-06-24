@@ -29,13 +29,13 @@ public class EventListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        // Небольшая задержка для полной загрузки игрока
+        // Задержка 2 тика для полной загрузки игрока
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             Team team = teamManager.getPlayerTeam(player.getUniqueId());
             if (team != null) {
                 teamManager.updatePlayerDisplay(player);
             }
-        }, 2L); // 2 тика
+        }, 2L);
     }
 
     @EventHandler
