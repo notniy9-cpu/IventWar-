@@ -27,6 +27,7 @@ public class TeamManager {
         if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
     }
 
+    // -------- Основные методы --------
     public Team createTeam(String name, UUID leader) {
         if (teams.containsKey(name)) return null;
         if (playerTeamMap.containsKey(leader)) return null;
@@ -121,17 +122,66 @@ public class TeamManager {
         return false;
     }
 
+    // -------- Передача лидерства --------
+    public boolean transferLeadership(UUID currentLeader, UUID newLeader) {
+        String teamName = playerTeamMap.get(currentLeader);
+        if (teamName == null) return false;
+        Team team = teams.get(teamName);
+        if (team == null) return false;
+        if (!team.isLeader(currentLeader)) return false;
+        if (!team.isMember(newLeader)) return false;
+        if (currentLeader.equals(newLeader)) return false;
+
+        team.setRole(currentLeader, "helper");
+        team.setLeader(newLeader);
+        team.setRole(newLeader, "leader");
+        saveTeams();
+        updateAllTeamTab(team);
+
+        Player oldLeader = Bukkit.getPlayer(currentLeader);
+        Player newLeaderP = Bukkit.getPlayer(newLeader);
+        if (oldLeader != null) oldLeader.sendMessage(ChatColor.YELLOW + "Ты передал лидерство " + Bukkit.getOfflinePlayer(newLeader).getName());
+        if (newLeaderP != null) newLeaderP.sendMessage(ChatColor.GOLD + "Теперь ты лидер команды '" + team.getColoredName() + ChatColor.GOLD + "'!");
+        return true;
+    }
+
+    // -------- Назначение/понижение ролей --------
+    public boolean promoteToHelper(UUID leader, UUID target) {
+        String teamName = playerTeamMap.get(leader);
+        if (teamName == null) return false;
+        Team team = teams.get(teamName);
+        if (team == null) return false;
+        if (!team.isLeader(leader)) return false;
+        if (!team.isMember(target)) return false;
+        if (team.isLeader(target)) return false;
+        team.setRole(target, "helper");
+        saveTeams();
+        return true;
+    }
+
+    public boolean demoteToMember(UUID leader, UUID target) {
+        String teamName = playerTeamMap.get(leader);
+        if (teamName == null) return false;
+        Team team = teams.get(teamName);
+        if (team == null) return false;
+        if (!team.isLeader(leader)) return false;
+        if (!team.isMember(target)) return false;
+        if (team.isLeader(target)) return false;
+        team.setRole(target, "member");
+        saveTeams();
+        return true;
+    }
+
+    // -------- Приглашения --------
     public void addInvitation(UUID player, String teamName) { pendingInvitations.put(player, teamName); }
     public String getInvitation(UUID player) { return pendingInvitations.get(player); }
     public void removeInvitation(UUID player) { pendingInvitations.remove(player); }
 
-    // ====== ГЛАВНЫЙ МЕТОД ОБНОВЛЕНИЯ TAB ======
+    // -------- Обновление Tab --------
     public void updateAllTeamTab(Team team) {
         for (UUID member : team.getMembers()) {
             Player player = Bukkit.getPlayer(member);
-            if (player != null) {
-                updatePlayerTab(player);
-            }
+            if (player != null) updatePlayerTab(player);
         }
     }
 
@@ -147,6 +197,7 @@ public class TeamManager {
         player.setPlayerListName(displayName);
     }
 
+    // -------- Сохранение / Загрузка --------
     public void saveTeams() {
         try (Writer writer = new FileWriter(dataFile)) {
             Map<String, TeamData> dataMap = new HashMap<>();
@@ -155,9 +206,14 @@ public class TeamManager {
                 TeamData data = new TeamData(
                         team.getLeader(),
                         new ArrayList<>(team.getMembers()),
+                        new HashMap<>(team.getMembers().stream()
+                                .collect(java.util.stream.Collectors.toMap(
+                                        uuid -> uuid,
+                                        uuid -> team.getRole(uuid)
+                                ))
+                        ),
                         team.getColor().name(),
                         team.getDescription(),
-                        team.getTextFormat().name(),
                         new HashMap<>(team.getMembers().stream()
                                 .collect(java.util.stream.Collectors.toMap(
                                         uuid -> uuid,
@@ -187,17 +243,22 @@ public class TeamManager {
                 JsonArray membersArray = teamData.get("members").getAsJsonArray();
                 for (JsonElement elem : membersArray) {
                     UUID member = UUID.fromString(elem.getAsString());
-                    if (!member.equals(leader)) team.addMember(member);
+                    if (!member.equals(leader)) {
+                        team.addMember(member);
+                    }
+                }
+
+                if (teamData.has("roles")) {
+                    JsonObject rolesObj = teamData.get("roles").getAsJsonObject();
+                    for (Map.Entry<String, JsonElement> roleEntry : rolesObj.entrySet()) {
+                        UUID player = UUID.fromString(roleEntry.getKey());
+                        String role = roleEntry.getValue().getAsString();
+                        team.setRole(player, role);
+                    }
                 }
 
                 String colorName = teamData.get("color").getAsString();
                 try { team.setColor(ChatColor.valueOf(colorName)); } catch (Exception e) { team.setColor(ChatColor.WHITE); }
-
-                if (teamData.has("textFormat")) {
-                    try { team.setTextFormat(ChatColor.valueOf(teamData.get("textFormat").getAsString())); } catch (Exception e) { team.setTextFormat(ChatColor.RESET); }
-                } else {
-                    team.setTextFormat(ChatColor.RESET);
-                }
 
                 team.setDescription(teamData.get("description").getAsString());
 
@@ -221,12 +282,15 @@ public class TeamManager {
     private static class TeamData {
         private final UUID leader;
         private final List<UUID> members;
+        private final Map<UUID, String> roles;
         private final String color;
         private final String description;
-        private final String textFormat;
         private final Map<UUID, String> prefixes;
-        public TeamData(UUID leader, List<UUID> members, String color, String description, String textFormat, Map<UUID, String> prefixes) {
-            this.leader = leader; this.members = members; this.color = color; this.description = description; this.textFormat = textFormat; this.prefixes = prefixes;
+        public TeamData(UUID leader, List<UUID> members, Map<UUID, String> roles,
+                        String color, String description, Map<UUID, String> prefixes) {
+            this.leader = leader; this.members = members; this.roles = roles;
+            this.color = color; this.description = description;
+            this.prefixes = prefixes;
         }
     }
 }

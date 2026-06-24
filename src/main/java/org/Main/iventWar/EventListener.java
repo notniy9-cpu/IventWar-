@@ -40,6 +40,7 @@ public class EventListener implements Listener {
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
         String messageText = ((TextComponent) event.message()).content();
         event.setCancelled(true);
+
         String formatted;
         if (team != null) {
             formatted = team.getColoredNameWithBrackets() + " " + player.getName() + ": " + messageText;

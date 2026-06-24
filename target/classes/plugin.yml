@@ -3,13 +3,13 @@ version: 1.0
 main: org.Main.iventWar.IventWar
 api-version: 1.20
 authors: [IventWar Team]
-description: Team management plugin with chat and tab integration
+description: Team management with event system
 commands:
   team:
     description: Main team command
-    usage: /team <create|invite|accept|decline|kick|leave|info|desc|color|style|prefix>
+    usage: /team <create|invite|accept|decline|kick|leave|info|desc|color|prefix|transfer|promote|demote>
   my:
-    description: Team menu
+    description: Team menu (use /my team)
     usage: /my team
   myteam:
     description: Team menu (alternative)
@@ -20,3 +20,15 @@ commands:
   topbro:
     description: Secret command
     usage: /topbro
+  startevent:
+    description: Open event setup menu (admin only)
+    usage: /startevent
+    permission: iventwar.start
+  startivent:
+    description: Alias for /startevent
+    usage: /startivent
+    permission: iventwar.start
+permissions:
+  iventwar.start:
+    description: Allows to start events
+    default: op
