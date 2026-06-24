@@ -23,25 +23,6 @@ public class AdminHubGUI implements Listener {
 
     private final Map<UUID, ChatColor> playerChatColors = new HashMap<>();
 
-    // Цвета и соответствующие материалы для наглядности
-    private final List<ColorOption> colorOptions = Arrays.asList(
-            new ColorOption("§cКрасный", ChatColor.RED, Material.RED_WOOL),
-            new ColorOption("§6Золотой", ChatColor.GOLD, Material.ORANGE_WOOL),
-            new ColorOption("§eЖёлтый", ChatColor.YELLOW, Material.YELLOW_WOOL),
-            new ColorOption("§aЗелёный", ChatColor.GREEN, Material.GREEN_WOOL),
-            new ColorOption("§bГолубой", ChatColor.AQUA, Material.LIGHT_BLUE_WOOL),
-            new ColorOption("§9Синий", ChatColor.BLUE, Material.BLUE_WOOL),
-            new ColorOption("§1Тёмно-синий", ChatColor.DARK_BLUE, Material.CYAN_WOOL),
-            new ColorOption("§3Тёмно-бирюзовый", ChatColor.DARK_AQUA, Material.CYAN_WOOL),
-            new ColorOption("§2Тёмно-зелёный", ChatColor.DARK_GREEN, Material.GREEN_WOOL),
-            new ColorOption("§5Фиолетовый", ChatColor.DARK_PURPLE, Material.PURPLE_WOOL),
-            new ColorOption("§dРозовый", ChatColor.LIGHT_PURPLE, Material.MAGENTA_WOOL),
-            new ColorOption("§7Серый", ChatColor.GRAY, Material.GRAY_WOOL),
-            new ColorOption("§8Тёмно-серый", ChatColor.DARK_GRAY, Material.GRAY_WOOL),
-            new ColorOption("§0Чёрный", ChatColor.BLACK, Material.BLACK_WOOL),
-            new ColorOption("§fБелый", ChatColor.WHITE, Material.WHITE_WOOL)
-    );
-
     public AdminHubGUI(IventWar plugin) {
         this.plugin = plugin;
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
@@ -156,11 +137,38 @@ public class AdminHubGUI implements Listener {
         }
 
         if (currentInputType == InputType.COLOR_PLAYER) {
-            targetPlayerName = msg;
-            waitingForInput.sendMessage("§eТеперь выберите цвет из меню:");
-            openColorSelection(event.getPlayer());
-            waitingForInput = null;
-            currentInputType = InputType.NONE;
+            // Проверяем, является ли ввод именем игрока или названием цвета
+            Player target = Bukkit.getPlayer(msg);
+            if (target != null) {
+                targetPlayerName = msg;
+                waitingForInput.sendMessage("§eТеперь введите название цвета в чат (red, green, blue, yellow, gold, aqua, dark_red, dark_green, dark_blue, dark_purple, black, white, gray):");
+                currentInputType = InputType.ANNOUNCEMENT; // временно используем как ожидание цвета
+                waitingForInput = event.getPlayer();
+                return;
+            } else {
+                // Если это не игрок, то возможно это цвет
+                ChatColor color = getColorByName(msg);
+                if (color != null) {
+                    if (targetPlayerName == null) {
+                        waitingForInput.sendMessage("§cСначала введите имя игрока!");
+                        return;
+                    }
+                    Player targetPlayer = Bukkit.getPlayer(targetPlayerName);
+                    if (targetPlayer != null) {
+                        playerChatColors.put(targetPlayer.getUniqueId(), color);
+                        waitingForInput.sendMessage("§aЦвет для " + targetPlayerName + " изменён на " + color + msg);
+                    } else {
+                        waitingForInput.sendMessage("§cИгрок не найден!");
+                    }
+                    waitingForInput = null;
+                    currentInputType = InputType.NONE;
+                    targetPlayerName = null;
+                    openMenu(event.getPlayer());
+                } else {
+                    waitingForInput.sendMessage("§cИгрок не найден и это не название цвета!");
+                    waitingForInput.sendMessage("§7Доступные цвета: red, green, blue, yellow, gold, aqua, dark_red, dark_green, dark_blue, dark_purple, black, white, gray");
+                }
+            }
         } else if (currentInputType == InputType.ANNOUNCEMENT) {
             sendAnnouncement(event.getPlayer(), msg);
             waitingForInput = null;
@@ -169,78 +177,24 @@ public class AdminHubGUI implements Listener {
         }
     }
 
-    // ----- Упрощённое меню выбора цвета с подписями -----
-    private void openColorSelection(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, "§aВыбор цвета для " + targetPlayerName);
-
-        int slot = 10;
-        for (ColorOption option : colorOptions) {
-            if (slot > 25) break;
-            ItemStack item = new ItemStack(option.material, 1);
-            ItemMeta meta = item.getItemMeta();
-            meta.setDisplayName(option.displayName);
-            meta.setLore(Arrays.asList("§7Нажмите, чтобы выбрать этот цвет"));
-            item.setItemMeta(meta);
-            inv.setItem(slot, item);
-            slot++;
+    private ChatColor getColorByName(String name) {
+        name = name.toLowerCase();
+        switch (name) {
+            case "red": return ChatColor.RED;
+            case "green": return ChatColor.GREEN;
+            case "blue": return ChatColor.BLUE;
+            case "yellow": return ChatColor.YELLOW;
+            case "gold": return ChatColor.GOLD;
+            case "aqua": return ChatColor.AQUA;
+            case "dark_red": return ChatColor.DARK_RED;
+            case "dark_green": return ChatColor.DARK_GREEN;
+            case "dark_blue": return ChatColor.DARK_BLUE;
+            case "dark_purple": return ChatColor.DARK_PURPLE;
+            case "black": return ChatColor.BLACK;
+            case "white": return ChatColor.WHITE;
+            case "gray": return ChatColor.GRAY;
+            default: return null;
         }
-
-        // Кнопка сброса
-        inv.setItem(22, createItem(Material.BARRIER, "§cСбросить цвет",
-                "§7Вернуть обычный цвет (белый)"));
-
-        player.openInventory(inv);
-    }
-
-    @EventHandler
-    public void onColorClick(InventoryClickEvent event) {
-        if (!event.getView().getTitle().equals("§aВыбор цвета для " + targetPlayerName)) return;
-        if (!(event.getWhoClicked() instanceof Player)) return;
-        Player player = (Player) event.getWhoClicked();
-        event.setCancelled(true);
-        if (event.getCurrentItem() == null) return;
-
-        int slot = event.getRawSlot();
-        if (slot == 22) {
-            // Сброс
-            Player target = Bukkit.getPlayer(targetPlayerName);
-            if (target != null) {
-                playerChatColors.remove(target.getUniqueId());
-                player.sendMessage("§aЦвет для " + targetPlayerName + " сброшен.");
-            } else {
-                player.sendMessage("§cИгрок не найден!");
-            }
-            player.closeInventory();
-            openMenu(player);
-            targetPlayerName = null;
-            return;
-        }
-
-        // Определяем цвет по названию предмета (с учётом цветового кода)
-        String displayName = event.getCurrentItem().getItemMeta().getDisplayName();
-        ChatColor selectedColor = null;
-        for (ColorOption option : colorOptions) {
-            if (option.displayName.equals(displayName)) {
-                selectedColor = option.color;
-                break;
-            }
-        }
-
-        if (selectedColor == null) {
-            player.sendMessage("§cОшибка выбора цвета!");
-            return;
-        }
-
-        Player target = Bukkit.getPlayer(targetPlayerName);
-        if (target != null) {
-            playerChatColors.put(target.getUniqueId(), selectedColor);
-            player.sendMessage("§aЦвет для " + targetPlayerName + " изменён на " + selectedColor + displayName);
-        } else {
-            player.sendMessage("§cИгрок не найден!");
-        }
-        player.closeInventory();
-        openMenu(player);
-        targetPlayerName = null;
     }
 
     private void sendAnnouncement(Player admin, String text) {
@@ -251,17 +205,5 @@ public class AdminHubGUI implements Listener {
 
     public ChatColor getPlayerChatColor(Player player) {
         return playerChatColors.getOrDefault(player.getUniqueId(), ChatColor.WHITE);
-    }
-
-    // Вспомогательный класс для хранения цветов
-    private static class ColorOption {
-        String displayName;
-        ChatColor color;
-        Material material;
-        ColorOption(String displayName, ChatColor color, Material material) {
-            this.displayName = displayName;
-            this.color = color;
-            this.material = material;
-        }
     }
 }
