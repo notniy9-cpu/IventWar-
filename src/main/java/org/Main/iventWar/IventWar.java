@@ -7,7 +7,6 @@ public class IventWar extends JavaPlugin {
     private TeamManager teamManager;
     private EventManager eventManager;
     private ZoneManager zoneManager;
-    private AdminHubGUI adminHubGUI;
 
     @Override
     public void onEnable() {
@@ -17,8 +16,9 @@ public class IventWar extends JavaPlugin {
         teamManager.loadTeams();
 
         eventManager = new EventManager(this);
+        eventManager.loadEvents();
+
         zoneManager = new ZoneManager(this);
-        adminHubGUI = new AdminHubGUI(this);
 
         getCommand("team").setExecutor(new CommandHandler(this));
         getCommand("my").setExecutor(new CommandHandler(this));
@@ -30,7 +30,6 @@ public class IventWar extends JavaPlugin {
         getCommand("closeevent").setExecutor(new CommandHandler(this));
         getCommand("createzone").setExecutor(new CommandHandler(this));
         getCommand("zone").setExecutor(new CommandHandler(this));
-        getCommand("adminhub").setExecutor(new CommandHandler(this));
 
         getServer().getPluginManager().registerEvents(new EventListener(this), this);
 
@@ -42,6 +41,7 @@ public class IventWar extends JavaPlugin {
     public void onDisable() {
         if (teamManager != null) teamManager.saveTeams();
         if (zoneManager != null) zoneManager.saveZones();
+        if (eventManager != null) eventManager.saveEvents();
         getLogger().info("IventWar выключен!");
     }
 
@@ -49,5 +49,4 @@ public class IventWar extends JavaPlugin {
     public TeamManager getTeamManager() { return teamManager; }
     public EventManager getEventManager() { return eventManager; }
     public ZoneManager getZoneManager() { return zoneManager; }
-    public AdminHubGUI getAdminHubGUI() { return adminHubGUI; }
 }

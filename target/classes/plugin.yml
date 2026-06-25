@@ -35,6 +35,3 @@ commands:
   zone:
     description: List and manage zones (OP only)
     usage: /zone
-  adminhub:
-    description: Open admin panel (OP only)
-    usage: /adminhub

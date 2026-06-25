@@ -20,17 +20,12 @@ public class EventGUI implements Listener {
     private final EventManager eventManager;
     private final TeamManager teamManager;
     private Player waitingForInput;
-    private enum InputType { NONE, DURATION, COORDINATES, END_SPAWN, EVENT_DELAY, EVENT_RADIUS, EVENT_COUNT, EVENT_INTERVAL, LOOT_CHANCE, TRADE_BUY, TRADE_SELL }
+    private enum InputType { NONE, DURATION, COORDINATES, END_SPAWN, EVENT_DELAY, EVENT_RADIUS, EVENT_COUNT, EVENT_INTERVAL, LOOT_CHANCE }
     private InputType currentInputType = InputType.NONE;
     private String currentTeamForCoords;
     private EventManager.EventType editingEvent;
 
-    // Для редактирования лута и трейдов
     private ItemStack tempLootItem;
-    private ItemStack tempBuyItem;
-    private int tempBuyAmount;
-    private ItemStack tempSellItem;
-    private int tempSellAmount;
 
     public EventGUI(IventWar plugin) {
         this.plugin = plugin;
@@ -39,13 +34,15 @@ public class EventGUI implements Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
-    // ===== ГЛАВНОЕ МЕНЮ =====
+    // ========================================================================
+    // ГЛАВНОЕ МЕНЮ
+    // ========================================================================
     public void openMenu(Player player) {
         Inventory inv = Bukkit.createInventory(null, 54, "§6§lНАСТРОЙКА ИВЕНТА");
 
         inv.setItem(10, createItem(Material.NAME_TAG, "§aВыбор команд",
                 "§7Выбрано: " + getTeamsDisplay(),
-                "§eНажмите, чтобы выбрать команды"));
+                "§eЛКМ – добавить | §cПКМ – убрать"));
 
         inv.setItem(19, createItem(Material.CLOCK, "§6Длительность ивента",
                 "§7Текущая: " + getDurationDisplay(),
@@ -59,6 +56,12 @@ public class EventGUI implements Listener {
                 "§7Текущее: " + getTimeDisplay(),
                 "§eНажмите, чтобы изменить"));
 
+        String cycleStatus = eventManager.isCycleEnabled() ? "§aВключен" : "§cВыключен";
+        inv.setItem(40, createItem(Material.REPEATER, "§eЦикл событий",
+                "§7Статус: " + cycleStatus,
+                "§7Интервал: " + eventManager.getCycleInterval() + " мин",
+                "§eНажмите для настройки"));
+
         inv.setItem(46, createItem(Material.COMPASS, "§6Координаты команд",
                 "§7Настроено для " + getTeamSpawnCount() + " команд",
                 "§eНажмите, чтобы настроить координаты"));
@@ -68,7 +71,7 @@ public class EventGUI implements Listener {
                 "§eНажмите, чтобы установить координаты"));
 
         inv.setItem(48, createItem(Material.NETHER_STAR, "§d§lСОБЫТИЯ",
-                "§7Настройка событий: Аэродроп, Торговец, Бомбардировка",
+                "§7Настройка событий: Аэродроп, Бомбардировка, Ядерная",
                 "§eНажмите, чтобы настроить события"));
 
         inv.setItem(49, createItem(Material.EMERALD_BLOCK, "§a§l▶ ЗАПУСТИТЬ ИВЕНТ!",
@@ -78,7 +81,22 @@ public class EventGUI implements Listener {
         player.openInventory(inv);
     }
 
-    // ===== МЕНЮ СОБЫТИЙ =====
+    // ----- Меню цикла -----
+    public void openCycleMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 27, "§eНастройка цикла");
+        String status = eventManager.isCycleEnabled() ? "§aВключен" : "§cВыключен";
+        inv.setItem(10, createItem(Material.LEVER, "§aВключить/Выключить",
+                "§7Текущий статус: " + status,
+                "§eНажмите для переключения"));
+        inv.setItem(13, createItem(Material.CLOCK, "§6Интервал (минуты)",
+                "§7Текущий: " + eventManager.getCycleInterval() + " мин",
+                "§eНажмите, чтобы изменить"));
+        inv.setItem(16, createItem(Material.ARROW, "§eНазад",
+                "§7Вернуться в главное меню"));
+        player.openInventory(inv);
+    }
+
+    // ----- Меню событий -----
     public void openEventsMenu(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, "§d§lНАСТРОЙКА СОБЫТИЙ");
 
@@ -90,30 +108,36 @@ public class EventGUI implements Listener {
                 "§7Радиус: " + airdrop.getRadius() + " блоков",
                 "§eНажмите для настройки"));
 
-        EventManager.EventSettings trader = eventManager.getSettings(EventManager.EventType.MYSTERY_TRADER);
-        String traderStatus = trader.isEnabled() ? "§aВключено" : "§cВыключено";
-        inv.setItem(13, createItem(Material.VILLAGER_SPAWN_EGG, "§dТайный торговец",
-                "§7Статус: " + traderStatus,
-                "§7Задержка: " + trader.getDelay() + " сек",
-                "§7Радиус: " + trader.getRadius() + " блоков",
-                "§eНажмите для настройки"));
-
         EventManager.EventSettings bomb = eventManager.getSettings(EventManager.EventType.BOMBARDMENT);
         String bombStatus = bomb.isEnabled() ? "§aВключено" : "§cВыключено";
-        inv.setItem(16, createItem(Material.TNT, "§cБомбардировка",
+        inv.setItem(13, createItem(Material.TNT, "§cБомбардировка",
                 "§7Статус: " + bombStatus,
                 "§7Интервал: " + bomb.getTntInterval() + " тиков",
                 "§7Количество TNT: " + bomb.getTntCount(),
                 "§7Радиус: " + bomb.getRadius() + " блоков",
                 "§eНажмите для настройки"));
 
-        inv.setItem(22, createItem(Material.ARROW, "§eНазад",
+        EventManager.EventSettings nuclear = eventManager.getSettings(EventManager.EventType.NUCLEAR);
+        String nuclearStatus = nuclear.isEnabled() ? "§aВключено" : "§cВыключено";
+        inv.setItem(16, createItem(Material.FIREWORK_ROCKET, "§6Ядерная боеголовка",
+                "§7Статус: " + nuclearStatus,
+                "§7Задержка: " + nuclear.getDelay() + " сек",
+                "§7Сила взрыва: " + nuclear.getExplosionPower(),
+                "§eНажмите для настройки"));
+
+        inv.setItem(22, createItem(Material.COMPASS, "§6Общие координаты",
+                "§7Установить координаты для всех событий",
+                "§eНажмите, чтобы ввести x y z"));
+        inv.setItem(23, createItem(Material.BARRIER, "§cСбросить координаты",
+                "§7Очистить координаты для всех событий"));
+
+        inv.setItem(26, createItem(Material.ARROW, "§eНазад",
                 "§7Вернуться в главное меню"));
 
         player.openInventory(inv);
     }
 
-    // ===== МЕНЮ НАСТРОЙКИ ОТДЕЛЬНОГО СОБЫТИЯ (упрощено) =====
+    // ----- Меню настройки конкретного события -----
     public void openEventSettings(Player player, EventManager.EventType type) {
         EventManager.EventSettings settings = eventManager.getSettings(type);
         String title = "§6Настройка: " + type.name();
@@ -129,9 +153,11 @@ public class EventGUI implements Listener {
                 "§7Текущая: " + settings.getDelay() + " сек",
                 "§eНажмите, чтобы изменить"));
 
-        inv.setItem(12, createItem(Material.COMPASS, "§6Радиус появления",
-                "§7Текущий: " + settings.getRadius() + " блоков",
-                "§eНажмите, чтобы изменить"));
+        if (type != EventManager.EventType.NUCLEAR) {
+            inv.setItem(12, createItem(Material.COMPASS, "§6Радиус появления",
+                    "§7Текущий: " + settings.getRadius() + " блоков",
+                    "§eНажмите, чтобы изменить"));
+        }
 
         Location center = settings.getCenter();
         String coords = (center == null) ? "§cНе установлены" :
@@ -140,7 +166,6 @@ public class EventGUI implements Listener {
                 "§7Текущие: " + coords,
                 "§eНажмите, чтобы установить"));
 
-        // Для аэродропа – кнопка редактирования лута
         if (type == EventManager.EventType.AIRDROP) {
             inv.setItem(14, createItem(Material.CHEST, "§eРедактировать лут",
                     "§7Предметов: " + settings.getLootItems().size(),
@@ -148,24 +173,24 @@ public class EventGUI implements Listener {
                     "§7(возьмите предмет в руку и нажмите)"));
         }
 
-        // Для торговца – кнопка редактирования трейдов
-        if (type == EventManager.EventType.MYSTERY_TRADER) {
-            inv.setItem(14, createItem(Material.EMERALD, "§eРедактировать трейды",
-                    "§7Трейдов: " + settings.getTradeItems().size(),
-                    "§eНажмите, чтобы добавить трейд",
-                    "§7(возьмите предмет для покупки в левую руку, для продажи в правую)"));
-        }
-
-        // Для бомбардировки – настройки TNT
         if (type == EventManager.EventType.BOMBARDMENT) {
             inv.setItem(14, createItem(Material.TNT, "§eКоличество TNT",
                     "§7Текущее: " + settings.getTntCount(),
                     "§eНажмите, чтобы изменить"));
-
-            inv.setItem(15, createItem(Material.CLOCK, "§eИнтервал между TNT",
+            inv.setItem(15, createItem(Material.CLOCK, "§eИнтервал между TNT (тики)",
                     "§7Текущий: " + settings.getTntInterval() + " тиков",
                     "§eНажмите, чтобы изменить"));
         }
+
+        if (type == EventManager.EventType.NUCLEAR) {
+            inv.setItem(16, createItem(Material.TNT, "§6Сила взрыва",
+                    "§7Текущая: " + settings.getExplosionPower(),
+                    "§eНажмите, чтобы изменить (0.1 – 250.0)"));
+        }
+
+        inv.setItem(24, createItem(Material.COMPASS, "§eТекущие координаты",
+                "§7Установить координаты центра в ваше текущее положение",
+                "§eНажмите, чтобы установить"));
 
         inv.setItem(22, createItem(Material.EMERALD_BLOCK, "§a§lЗАПУСТИТЬ СЕЙЧАС!",
                 "§7Запустить это событие вручную",
@@ -177,12 +202,17 @@ public class EventGUI implements Listener {
         player.openInventory(inv);
     }
 
-    // ===== ОБРАБОТЧИК КЛИКОВ =====
+    // ========================================================================
+    // ОБРАБОТЧИК КЛИКОВ
+    // ========================================================================
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
         String title = event.getView().getTitle();
+
+        // Игнорируем клики по инвентарю игрока (нижняя часть)
+        if (event.getRawSlot() >= event.getInventory().getSize()) return;
 
         // ---- Главное меню ----
         if (title.equals("§6§lНАСТРОЙКА ИВЕНТА")) {
@@ -194,10 +224,37 @@ public class EventGUI implements Listener {
                 case 19: openDurationSelection(player); break;
                 case 28: openWeatherSelection(player); break;
                 case 37: openTimeSelection(player); break;
+                case 40: openCycleMenu(player); break;
                 case 46: openSpawnSettings(player); break;
                 case 47: promptEndSpawnCoordinates(player); break;
                 case 48: openEventsMenu(player); break;
                 case 49: startMainEvent(player); break;
+            }
+            return;
+        }
+
+        // ---- Меню цикла ----
+        if (title.equals("§eНастройка цикла")) {
+            event.setCancelled(true);
+            if (event.getCurrentItem() == null) return;
+
+            int slot = event.getRawSlot();
+            switch (slot) {
+                case 10:
+                    eventManager.setCycleEnabled(!eventManager.isCycleEnabled());
+                    player.sendMessage("§aЦикл событий " + (eventManager.isCycleEnabled() ? "включен" : "выключен"));
+                    openCycleMenu(player);
+                    break;
+                case 13:
+                    player.closeInventory();
+                    currentInputType = InputType.EVENT_COUNT;
+                    editingEvent = null;
+                    waitingForInput = player;
+                    player.sendMessage("§eВведите интервал цикла (минуты, от 1 до 60):");
+                    break;
+                case 16:
+                    openMenu(player);
+                    break;
             }
             return;
         }
@@ -210,14 +267,29 @@ public class EventGUI implements Listener {
             int slot = event.getRawSlot();
             switch (slot) {
                 case 10: openEventSettings(player, EventManager.EventType.AIRDROP); break;
-                case 13: openEventSettings(player, EventManager.EventType.MYSTERY_TRADER); break;
-                case 16: openEventSettings(player, EventManager.EventType.BOMBARDMENT); break;
-                case 22: openMenu(player); break;
+                case 13: openEventSettings(player, EventManager.EventType.BOMBARDMENT); break;
+                case 16: openEventSettings(player, EventManager.EventType.NUCLEAR); break;
+                case 22:
+                    player.closeInventory();
+                    currentInputType = InputType.COORDINATES;
+                    editingEvent = null;
+                    waitingForInput = player;
+                    player.sendMessage("§eВведите координаты через пробел для всех событий: §6x y z");
+                    player.sendMessage("§7(или напишите §cотмена§7)");
+                    break;
+                case 23:
+                    eventManager.clearCommonCoordinates();
+                    player.sendMessage("§aОбщие координаты сброшены!");
+                    openEventsMenu(player);
+                    break;
+                case 26:
+                    openMenu(player);
+                    break;
             }
             return;
         }
 
-        // ---- Настройка события ----
+        // ---- Настройка конкретного события ----
         if (title.startsWith("§6Настройка: ")) {
             event.setCancelled(true);
             if (event.getCurrentItem() == null) return;
@@ -242,6 +314,7 @@ public class EventGUI implements Listener {
                     player.sendMessage("§eВведите задержку до появления (сек):");
                     break;
                 case 12:
+                    if (type == EventManager.EventType.NUCLEAR) break;
                     player.closeInventory();
                     currentInputType = InputType.EVENT_RADIUS;
                     editingEvent = type;
@@ -257,7 +330,6 @@ public class EventGUI implements Listener {
                     break;
                 case 14:
                     if (type == EventManager.EventType.AIRDROP) {
-                        // Редактирование лута
                         ItemStack itemInHand = player.getInventory().getItemInMainHand();
                         if (itemInHand == null || itemInHand.getType() == Material.AIR) {
                             player.sendMessage("§cВозьмите предмет в руку!");
@@ -269,26 +341,6 @@ public class EventGUI implements Listener {
                         currentInputType = InputType.LOOT_CHANCE;
                         waitingForInput = player;
                         player.sendMessage("§eВведите шанс выпадения (от 0.01 до 1.0, например 0.5):");
-                    } else if (type == EventManager.EventType.MYSTERY_TRADER) {
-                        // Редактирование трейдов
-                        ItemStack buyItem = player.getInventory().getItemInOffHand();
-                        ItemStack sellItem = player.getInventory().getItemInMainHand();
-                        if (buyItem == null || buyItem.getType() == Material.AIR) {
-                            player.sendMessage("§cВозьмите предмет для покупки в левую руку!");
-                            return;
-                        }
-                        if (sellItem == null || sellItem.getType() == Material.AIR) {
-                            player.sendMessage("§cВозьмите предмет для продажи в правую руку!");
-                            return;
-                        }
-                        tempBuyItem = buyItem.clone();
-                        tempSellItem = sellItem.clone();
-                        tempBuyItem.setAmount(1);
-                        tempSellItem.setAmount(1);
-                        player.closeInventory();
-                        currentInputType = InputType.TRADE_BUY;
-                        waitingForInput = player;
-                        player.sendMessage("§eВведите количество предметов для покупки и продажи через пробел: §6<кол-во покупки> <кол-во продажи>");
                     } else if (type == EventManager.EventType.BOMBARDMENT) {
                         player.closeInventory();
                         currentInputType = InputType.EVENT_COUNT;
@@ -306,19 +358,125 @@ public class EventGUI implements Listener {
                         player.sendMessage("§eВведите интервал между TNT (тики, 20 тиков = 1 сек):");
                     }
                     break;
+                case 16:
+                    if (type == EventManager.EventType.NUCLEAR) {
+                        player.closeInventory();
+                        currentInputType = InputType.EVENT_COUNT;
+                        editingEvent = type;
+                        waitingForInput = player;
+                        player.sendMessage("§eВведите силу взрыва (число от 0.1 до 250.0):");
+                    }
+                    break;
                 case 22:
                     eventManager.startEvent(type);
                     player.sendMessage("§aСобытие " + type.name() + " запущено!");
+                    openEventSettings(player, type);
+                    break;
+                case 24:
+                    Location currentLoc = player.getLocation();
+                    settings.setCenter(currentLoc);
+                    player.sendMessage("§aКоординаты установлены на ваше текущее положение: §6" +
+                            currentLoc.getBlockX() + " " + currentLoc.getBlockY() + " " + currentLoc.getBlockZ());
+                    eventManager.saveEvents();
                     openEventSettings(player, type);
                     break;
                 case 26:
                     openEventsMenu(player);
                     break;
             }
+            return;
         }
     }
 
-    // ===== ОБРАБОТКА ВВОДА В ЧАТ =====
+    // ========================================================================
+    // ВЫБОР КОМАНД (ЛКМ – добавить, ПКМ – убрать)
+    // ========================================================================
+    private void openTeamSelection(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 54, "§aВыбор команд");
+        inv.setItem(0, createItem(Material.GRASS_BLOCK, "§aВсе игроки",
+                "§7Все онлайн игроки",
+                "§eЛКМ – выбрать всех | §cПКМ – отменить всех"));
+
+        inv.setItem(53, createItem(Material.LIME_WOOL, "§a§lГОТОВО",
+                "§7Сохранить выбранные команды"));
+
+        int slot = 10;
+        for (Team team : teamManager.getAllTeams()) {
+            if (slot >= 53) break;
+            String teamName = team.getName();
+            boolean selected = eventManager.getSelectedTeams().contains(teamName);
+            Material material = selected ? Material.GREEN_WOOL : Material.WHITE_WOOL;
+            String status = selected ? "§a✓ Выбрана" : "§7✗ Не выбрана";
+            inv.setItem(slot, createItem(material, "§6" + teamName,
+                    "§7Участников: " + team.getMemberCount(),
+                    status,
+                    "§eЛКМ – добавить | §cПКМ – убрать"));
+            slot++;
+        }
+        player.openInventory(inv);
+    }
+
+    @EventHandler
+    public void onTeamSelectionClick(InventoryClickEvent event) {
+        if (!event.getView().getTitle().equals("§aВыбор команд")) return;
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        Player player = (Player) event.getWhoClicked();
+        event.setCancelled(true);
+        if (event.getCurrentItem() == null) return;
+
+        String display = ChatColor.stripColor(event.getCurrentItem().getItemMeta().getDisplayName());
+        boolean isLeftClick = event.isLeftClick();
+        boolean isRightClick = event.isRightClick();
+
+        if (display.equals("ГОТОВО")) {
+            player.closeInventory();
+            openMenu(player);
+            return;
+        }
+
+        if (display.equals("Все игроки")) {
+            List<String> teams = eventManager.getSelectedTeams();
+            if (isLeftClick) {
+                teams.clear();
+                teams.add("all");
+                player.sendMessage("§aВыбраны все игроки");
+            } else if (isRightClick) {
+                teams.remove("all");
+                player.sendMessage("§cВсе игроки отключены");
+            }
+            openTeamSelection(player);
+            return;
+        }
+
+        String teamName = display;
+        Team team = teamManager.getTeam(teamName);
+        if (team == null) return;
+
+        List<String> selected = eventManager.getSelectedTeams();
+
+        if (isLeftClick) {
+            if (!selected.contains(teamName)) {
+                selected.remove("all");
+                selected.add(teamName);
+                player.sendMessage("§aКоманда '" + teamName + "' добавлена");
+            } else {
+                player.sendMessage("§eКоманда '" + teamName + "' уже выбрана");
+            }
+        } else if (isRightClick) {
+            if (selected.contains(teamName)) {
+                selected.remove(teamName);
+                player.sendMessage("§cКоманда '" + teamName + "' исключена");
+            } else {
+                player.sendMessage("§eКоманда '" + teamName + "' не выбрана");
+            }
+        }
+
+        openTeamSelection(player);
+    }
+
+    // ========================================================================
+    // ОБРАБОТКА ВВОДА ИЗ ЧАТА (ИСПРАВЛЕНА – добавлен DURATION)
+    // ========================================================================
     @EventHandler
     public void onChat(AsyncPlayerChatEvent event) {
         if (waitingForInput == null) return;
@@ -330,43 +488,84 @@ public class EventGUI implements Listener {
             waitingForInput.sendMessage("§cВвод отменён");
             waitingForInput = null;
             currentInputType = InputType.NONE;
+            editingEvent = null;
+            currentTeamForCoords = null;
+            tempLootItem = null;
             openMenu(event.getPlayer());
             return;
         }
 
         try {
             switch (currentInputType) {
+                case DURATION:
+                    int minutes = Integer.parseInt(msg);
+                    if (minutes <= 0 || minutes > 1440) {
+                        waitingForInput.sendMessage("§cВведите число от 1 до 1440 (24 часа)");
+                        return;
+                    }
+                    eventManager.setEventDuration(minutes);
+                    waitingForInput.sendMessage("§aДлительность установлена: " + minutes + " минут");
+                    break;
+
                 case EVENT_DELAY:
                     int delay = Integer.parseInt(msg);
-                    if (delay < 5 || delay > 3600) { waitingForInput.sendMessage("§cОт 5 до 3600 сек"); return; }
+                    if (delay < 5 || delay > 3600) {
+                        waitingForInput.sendMessage("§cОт 5 до 3600 сек");
+                        return;
+                    }
                     eventManager.getSettings(editingEvent).setDelay(delay);
                     waitingForInput.sendMessage("§aЗадержка установлена: " + delay + " сек");
                     break;
 
                 case EVENT_RADIUS:
                     int radius = Integer.parseInt(msg);
-                    if (radius < 5 || radius > 500) { waitingForInput.sendMessage("§cОт 5 до 500 блоков"); return; }
+                    if (radius < 5 || radius > 500) {
+                        waitingForInput.sendMessage("§cОт 5 до 500 блоков");
+                        return;
+                    }
                     eventManager.getSettings(editingEvent).setRadius(radius);
                     waitingForInput.sendMessage("§aРадиус установлен: " + radius + " блоков");
                     break;
 
                 case EVENT_COUNT:
                     int count = Integer.parseInt(msg);
-                    if (count < 1 || count > 500) { waitingForInput.sendMessage("§cОт 1 до 500"); return; }
-                    eventManager.getSettings(editingEvent).setTntCount(count);
-                    waitingForInput.sendMessage("§aКоличество TNT: " + count);
+                    if (count < 1 || count > 500) {
+                        waitingForInput.sendMessage("§cОт 1 до 500");
+                        return;
+                    }
+                    if (editingEvent == null) {
+                        eventManager.setCycleInterval(count);
+                        waitingForInput.sendMessage("§aИнтервал цикла установлен: " + count + " мин");
+                    } else if (editingEvent == EventManager.EventType.BOMBARDMENT) {
+                        eventManager.getSettings(editingEvent).setTntCount(count);
+                        waitingForInput.sendMessage("§aКоличество TNT: " + count);
+                    } else if (editingEvent == EventManager.EventType.NUCLEAR) {
+                        float power = Float.parseFloat(msg);
+                        if (power < 0.1f || power > 250.0f) {
+                            waitingForInput.sendMessage("§cОт 0.1 до 250.0");
+                            return;
+                        }
+                        eventManager.getSettings(editingEvent).setExplosionPower(power);
+                        waitingForInput.sendMessage("§aСила взрыва установлена: " + power);
+                    }
                     break;
 
                 case EVENT_INTERVAL:
                     int interval = Integer.parseInt(msg);
-                    if (interval < 5 || interval > 200) { waitingForInput.sendMessage("§cОт 5 до 200 тиков"); return; }
+                    if (interval < 5 || interval > 200) {
+                        waitingForInput.sendMessage("§cОт 5 до 200 тиков");
+                        return;
+                    }
                     eventManager.getSettings(editingEvent).setTntInterval(interval);
                     waitingForInput.sendMessage("§aИнтервал: " + interval + " тиков");
                     break;
 
                 case COORDINATES:
                     String[] parts = msg.split(" ");
-                    if (parts.length != 3) { waitingForInput.sendMessage("§cВведите три числа: x y z"); return; }
+                    if (parts.length != 3) {
+                        waitingForInput.sendMessage("§cВведите три числа: x y z");
+                        return;
+                    }
                     double x = Double.parseDouble(parts[0]);
                     double y = Double.parseDouble(parts[1]);
                     double z = Double.parseDouble(parts[2]);
@@ -374,41 +573,26 @@ public class EventGUI implements Listener {
                     if (editingEvent != null) {
                         eventManager.getSettings(editingEvent).setCenter(loc);
                         waitingForInput.sendMessage("§aКоординаты для события установлены!");
-                    } else if (currentTeamForCoords != null) {
-                        eventManager.setTeamSpawnLocation(currentTeamForCoords, loc);
-                        waitingForInput.sendMessage("§aКоординаты для команды " + currentTeamForCoords + " установлены!");
-                        currentTeamForCoords = null;
                     } else {
-                        eventManager.setEndSpawnLocation(loc);
-                        waitingForInput.sendMessage("§aСпавн после ивента установлен!");
+                        eventManager.setCommonCoordinates(loc);
                     }
                     break;
 
                 case LOOT_CHANCE:
                     double chance = Double.parseDouble(msg);
-                    if (chance < 0.01 || chance > 1.0) { waitingForInput.sendMessage("§cОт 0.01 до 1.0"); return; }
-                    if (tempLootItem == null) { waitingForInput.sendMessage("§cОшибка: предмет не выбран!"); return; }
+                    if (chance < 0.01 || chance > 1.0) {
+                        waitingForInput.sendMessage("§cОт 0.01 до 1.0");
+                        return;
+                    }
+                    if (tempLootItem == null) {
+                        waitingForInput.sendMessage("§cОшибка: предмет не выбран!");
+                        return;
+                    }
                     EventManager.EventSettings airdropSettings = eventManager.getSettings(EventManager.EventType.AIRDROP);
                     airdropSettings.getLootItems().add(new EventManager.EventSettings.LootItem(tempLootItem.clone(), chance));
                     waitingForInput.sendMessage("§aПредмет добавлен в лут с шансом " + chance);
                     tempLootItem = null;
-                    break;
-
-                case TRADE_BUY:
-                    String[] tradeParts = msg.split(" ");
-                    if (tradeParts.length != 2) { waitingForInput.sendMessage("§cВведите два числа: <кол-во покупки> <кол-во продажи>"); return; }
-                    int buyAmount = Integer.parseInt(tradeParts[0]);
-                    int sellAmount = Integer.parseInt(tradeParts[1]);
-                    if (buyAmount < 1 || sellAmount < 1) { waitingForInput.sendMessage("§cКоличество должно быть >= 1"); return; }
-                    if (tempBuyItem == null || tempSellItem == null) { waitingForInput.sendMessage("§cОшибка: предметы не выбраны!"); return; }
-                    EventManager.EventSettings traderSettings = eventManager.getSettings(EventManager.EventType.MYSTERY_TRADER);
-                    traderSettings.getTradeItems().add(
-                            new EventManager.EventSettings.TradeItem(tempBuyItem.clone(), buyAmount, tempSellItem.clone(), sellAmount)
-                    );
-                    waitingForInput.sendMessage("§aТрейд добавлен: " + buyAmount + " x " + tempBuyItem.getType().name() +
-                            " → " + sellAmount + " x " + tempSellItem.getType().name());
-                    tempBuyItem = null;
-                    tempSellItem = null;
+                    eventManager.saveEvents();
                     break;
 
                 default:
@@ -428,62 +612,15 @@ public class EventGUI implements Listener {
         }
     }
 
-    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ МЕНЮ =====
+    // ========================================================================
+    // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
+    // ========================================================================
     private void startMainEvent(Player player) {
         eventManager.startMainEvent();
         player.closeInventory();
         player.sendMessage("§aИвент запущен!");
     }
 
-    // ---- Выбор команд ----
-    private void openTeamSelection(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 54, "§aВыбор команд");
-        inv.setItem(0, createItem(Material.GRASS_BLOCK, "§aВсе игроки",
-                "§7Все онлайн игроки", "§eНажмите, чтобы выбрать/отменить"));
-        inv.setItem(53, createItem(Material.LIME_WOOL, "§a§lГОТОВО",
-                "§7Сохранить выбранные команды"));
-
-        int slot = 10;
-        for (Team team : teamManager.getAllTeams()) {
-            if (slot >= 53) break;
-            String teamName = team.getName();
-            boolean selected = eventManager.getSelectedTeams().contains(teamName);
-            Material material = selected ? Material.GREEN_WOOL : Material.WHITE_WOOL;
-            inv.setItem(slot, createItem(material, "§6" + teamName,
-                    "§7Участников: " + team.getMemberCount(),
-                    selected ? "§a✓ Выбрана" : "§7✗ Не выбрана",
-                    "§eНажмите, чтобы переключить"));
-            slot++;
-        }
-        player.openInventory(inv);
-    }
-
-    @EventHandler
-    public void onTeamSelectionClick(InventoryClickEvent event) {
-        if (!event.getView().getTitle().equals("§aВыбор команд")) return;
-        if (!(event.getWhoClicked() instanceof Player)) return;
-        Player player = (Player) event.getWhoClicked();
-        event.setCancelled(true);
-        if (event.getCurrentItem() == null) return;
-
-        String display = ChatColor.stripColor(event.getCurrentItem().getItemMeta().getDisplayName());
-        if (display.equals("ГОТОВО")) { player.closeInventory(); openMenu(player); return; }
-        if (display.equals("Все игроки")) {
-            List<String> teams = eventManager.getSelectedTeams();
-            if (teams.contains("all")) { teams.remove("all"); player.sendMessage("§aВсе игроки отключены"); }
-            else { teams.clear(); teams.add("all"); player.sendMessage("§aВыбраны все игроки"); }
-            openTeamSelection(player);
-            return;
-        }
-        String teamName = display;
-        if (teamManager.getTeam(teamName) == null) return;
-        List<String> selected = eventManager.getSelectedTeams();
-        if (selected.contains(teamName)) { selected.remove(teamName); player.sendMessage("§cКоманда '" + teamName + "' исключена"); }
-        else { selected.add(teamName); selected.remove("all"); player.sendMessage("§aКоманда '" + teamName + "' добавлена"); }
-        openTeamSelection(player);
-    }
-
-    // ---- Длительность ----
     private void openDurationSelection(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, "§6Длительность");
         inv.setItem(10, createItem(Material.BOOK, "§eКастомное", "§7Введите в чат минуты"));
@@ -497,6 +634,7 @@ public class EventGUI implements Listener {
         if (!event.getView().getTitle().equals("§6Длительность")) return;
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
+        if (event.getRawSlot() >= event.getInventory().getSize()) return;
         event.setCancelled(true);
         if (event.getCurrentItem() == null) return;
 
@@ -509,15 +647,16 @@ public class EventGUI implements Listener {
         } else if (display.contains("30 минут")) {
             eventManager.setEventDuration(30);
             player.sendMessage("§aДлительность: 30 минут");
-            player.closeInventory(); openMenu(player);
+            player.closeInventory();
+            openMenu(player);
         } else if (display.contains("1 час")) {
             eventManager.setEventDuration(60);
             player.sendMessage("§aДлительность: 1 час");
-            player.closeInventory(); openMenu(player);
+            player.closeInventory();
+            openMenu(player);
         }
     }
 
-    // ---- Погода ----
     private void openWeatherSelection(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, "§bПогода");
         inv.setItem(10, createItem(Material.SUNFLOWER, "§eЯсно"));
@@ -531,6 +670,7 @@ public class EventGUI implements Listener {
         if (!event.getView().getTitle().equals("§bПогода")) return;
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
+        if (event.getRawSlot() >= event.getInventory().getSize()) return;
         event.setCancelled(true);
         if (event.getCurrentItem() == null) return;
 
@@ -542,10 +682,10 @@ public class EventGUI implements Listener {
             default: return;
         }
         player.sendMessage("§aПогода: " + display);
-        player.closeInventory(); openMenu(player);
+        player.closeInventory();
+        openMenu(player);
     }
 
-    // ---- Время суток ----
     private void openTimeSelection(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, "§dВремя суток");
         inv.setItem(10, createItem(Material.SUNFLOWER, "§eДень"));
@@ -561,6 +701,7 @@ public class EventGUI implements Listener {
         if (!event.getView().getTitle().equals("§dВремя суток")) return;
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
+        if (event.getRawSlot() >= event.getInventory().getSize()) return;
         event.setCancelled(true);
         if (event.getCurrentItem() == null) return;
 
@@ -574,10 +715,10 @@ public class EventGUI implements Listener {
             default: return;
         }
         player.sendMessage("§aВремя суток: " + display);
-        player.closeInventory(); openMenu(player);
+        player.closeInventory();
+        openMenu(player);
     }
 
-    // ---- Координаты команд ----
     private void openSpawnSettings(Player player) {
         Inventory inv = Bukkit.createInventory(null, 54, "§6Координаты команд");
         inv.setItem(0, createItem(Material.BARRIER, "§cСбросить все координаты",
@@ -608,11 +749,16 @@ public class EventGUI implements Listener {
         if (!event.getView().getTitle().equals("§6Координаты команд")) return;
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
+        if (event.getRawSlot() >= event.getInventory().getSize()) return;
         event.setCancelled(true);
         if (event.getCurrentItem() == null) return;
 
         String display = ChatColor.stripColor(event.getCurrentItem().getItemMeta().getDisplayName());
-        if (display.equals("Назад")) { player.closeInventory(); openMenu(player); return; }
+        if (display.equals("Назад")) {
+            player.closeInventory();
+            openMenu(player);
+            return;
+        }
         if (display.equals("Сбросить все координаты")) {
             eventManager.clearAllSpawnLocations();
             player.sendMessage("§aВсе координаты сброшены!");
@@ -630,7 +776,6 @@ public class EventGUI implements Listener {
         }
     }
 
-    // ---- Спавн после ивента ----
     private void promptEndSpawnCoordinates(Player player) {
         player.closeInventory();
         currentInputType = InputType.COORDINATES;
@@ -640,7 +785,6 @@ public class EventGUI implements Listener {
         player.sendMessage("§7(или напишите §cотмена§7)");
     }
 
-    // ---- Вспомогательный метод для создания предметов ----
     private ItemStack createItem(Material material, String name, String... lore) {
         ItemStack item = new ItemStack(material, 1);
         ItemMeta meta = item.getItemMeta();
@@ -650,7 +794,6 @@ public class EventGUI implements Listener {
         return item;
     }
 
-    // ---- Геттеры для отображения ----
     private String getTeamsDisplay() {
         List<String> teams = eventManager.getSelectedTeams();
         return teams.isEmpty() ? "§cне выбраны" : String.join(", ", teams);

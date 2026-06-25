@@ -14,14 +14,12 @@ public class CommandHandler implements CommandExecutor {
     private final TeamManager teamManager;
     private final EventGUI eventGUI;
     private final ZoneGUI zoneGUI;
-    private final AdminHubGUI adminHubGUI;
 
     public CommandHandler(IventWar plugin) {
         this.plugin = plugin;
         this.teamManager = plugin.getTeamManager();
         this.eventGUI = new EventGUI(plugin);
         this.zoneGUI = new ZoneGUI(plugin);
-        this.adminHubGUI = new AdminHubGUI(plugin);
     }
 
     @Override
@@ -100,21 +98,28 @@ public class CommandHandler implements CommandExecutor {
             return true;
         }
 
-        if (cmd.equals("adminhub")) {
-            if (!player.isOp()) {
-                player.sendMessage(ChatColor.RED + "Нет прав!");
-                return true;
-            }
-            adminHubGUI.openMenu(player);
-            return true;
-        }
-
         // ---------- Основная команда /team ----------
         if (cmd.equals("team")) {
             if (args.length == 0) {
                 sendHelp(player);
                 return true;
             }
+
+            // Команда /team delete all
+            if (args.length == 2 && args[0].equalsIgnoreCase("delete") && args[1].equalsIgnoreCase("all")) {
+                if (!player.isOp()) {
+                    player.sendMessage(ChatColor.RED + "Нет прав!");
+                    return true;
+                }
+                int count = 0;
+                for (Team team : teamManager.getAllTeams()) {
+                    teamManager.deleteTeam(team.getName());
+                    count++;
+                }
+                player.sendMessage(ChatColor.GREEN + "Удалено " + count + " команд.");
+                return true;
+            }
+
             String subCmd = args[0].toLowerCase();
             switch (subCmd) {
                 case "create":   handleCreate(player, args); break;
@@ -567,16 +572,29 @@ public class CommandHandler implements CommandExecutor {
         }
     }
 
-    // ---------- /help (компактная) ----------
+    // ---------- Справка ----------
     private void sendHelp(Player player) {
-        player.sendMessage(ChatColor.GOLD + "=== IventWar Commands ===");
-        player.sendMessage(ChatColor.YELLOW + "/team <create|invite|accept|decline|kick|leave|info|desc|color|prefix|transfer|promote|demote>");
-        player.sendMessage(ChatColor.YELLOW + "/myteam " + ChatColor.WHITE + "- Меню команды");
-        player.sendMessage(ChatColor.YELLOW + "/tc <msg> " + ChatColor.WHITE + "- Командный чат");
-        player.sendMessage(ChatColor.YELLOW + "/startevent " + ChatColor.WHITE + "- Настройка ивента (OP)");
-        player.sendMessage(ChatColor.YELLOW + "/closeEvent <reason> " + ChatColor.WHITE + "- Завершить ивент (OP)");
-        player.sendMessage(ChatColor.YELLOW + "/createzone " + ChatColor.WHITE + "- Создать зону (OP)");
-        player.sendMessage(ChatColor.YELLOW + "/zone " + ChatColor.WHITE + "- Список зон (OP)");
-        player.sendMessage(ChatColor.YELLOW + "/adminhub " + ChatColor.WHITE + "- Админ-панель (OP)");
+        player.sendMessage(ChatColor.GOLD + "=== Команды /team ===");
+        player.sendMessage(ChatColor.YELLOW + "/team create <название> " + ChatColor.WHITE + "(Создать команду)");
+        player.sendMessage(ChatColor.YELLOW + "/team invite <игрок> " + ChatColor.WHITE + "(Пригласить игрока)");
+        player.sendMessage(ChatColor.YELLOW + "/team accept " + ChatColor.WHITE + "(Принять приглашение)");
+        player.sendMessage(ChatColor.YELLOW + "/team decline " + ChatColor.WHITE + "(Отклонить приглашение)");
+        player.sendMessage(ChatColor.YELLOW + "/team kick <игрок> " + ChatColor.WHITE + "(Исключить игрока)");
+        player.sendMessage(ChatColor.YELLOW + "/team leave " + ChatColor.WHITE + "(Покинуть команду)");
+        player.sendMessage(ChatColor.YELLOW + "/team info " + ChatColor.WHITE + "(Информация о команде)");
+        player.sendMessage(ChatColor.YELLOW + "/team desc <описание> " + ChatColor.WHITE + "(Установить описание)");
+        player.sendMessage(ChatColor.YELLOW + "/team color <цвет> " + ChatColor.WHITE + "(Установить цвет)");
+        player.sendMessage(ChatColor.YELLOW + "/team prefix <позывной> " + ChatColor.WHITE + "(Установить позывной)");
+        player.sendMessage(ChatColor.YELLOW + "/team transfer <игрок> " + ChatColor.WHITE + "(Передать лидерство)");
+        player.sendMessage(ChatColor.YELLOW + "/team promote <игрок> " + ChatColor.WHITE + "(Назначить помощником)");
+        player.sendMessage(ChatColor.YELLOW + "/team demote <игрок> " + ChatColor.WHITE + "(Понизить до участника)");
+        player.sendMessage(ChatColor.YELLOW + "/team delete all " + ChatColor.WHITE + "(Удалить все команды, OP)");
+        player.sendMessage(ChatColor.GOLD + "=== Другие команды ===");
+        player.sendMessage(ChatColor.YELLOW + "/myteam " + ChatColor.WHITE + "(Меню команды)");
+        player.sendMessage(ChatColor.YELLOW + "/tc <сообщение> " + ChatColor.WHITE + "(Командный чат)");
+        player.sendMessage(ChatColor.YELLOW + "/startevent " + ChatColor.WHITE + "(Настройка ивента, OP)");
+        player.sendMessage(ChatColor.YELLOW + "/closeEvent <причина> " + ChatColor.WHITE + "(Завершить ивент, OP)");
+        player.sendMessage(ChatColor.YELLOW + "/createzone " + ChatColor.WHITE + "(Создать зону, OP)");
+        player.sendMessage(ChatColor.YELLOW + "/zone " + ChatColor.WHITE + "(Список зон, OP)");
     }
 }

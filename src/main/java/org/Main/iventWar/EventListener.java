@@ -17,19 +17,24 @@ public class EventListener implements Listener {
     private final IventWar plugin;
     private final TeamManager teamManager;
     private final ZoneManager zoneManager;
-    private final AdminHubGUI adminHubGUI;
+    private final EventManager eventManager;
 
     public EventListener(IventWar plugin) {
         this.plugin = plugin;
         this.teamManager = plugin.getTeamManager();
         this.zoneManager = plugin.getZoneManager();
-        this.adminHubGUI = plugin.getAdminHubGUI();
+        this.eventManager = plugin.getEventManager();
+
+        if (eventManager != null) {
+            Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                eventManager.updateActionBarTimers();
+            }, 0L, 20L);
+        }
     }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        // Задержка 2 тика для полной загрузки игрока
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             Team team = teamManager.getPlayerTeam(player.getUniqueId());
             if (team != null) {
@@ -77,15 +82,10 @@ public class EventListener implements Listener {
         String messageText = ((TextComponent) event.message()).content();
         event.setCancelled(true);
 
-        ChatColor playerColor = adminHubGUI.getPlayerChatColor(player);
-        String playerNameColor = playerColor + player.getName();
-
-        String formatted;
-        if (team != null) {
-            formatted = team.getColoredNameWithBrackets() + " " + playerNameColor + ": " + messageText;
-        } else {
-            formatted = playerNameColor + ": " + messageText;
-        }
+        String playerNameColor = ChatColor.WHITE + player.getName();
+        String formatted = (team != null) ?
+                team.getColoredNameWithBrackets() + " " + playerNameColor + ": " + messageText :
+                playerNameColor + ": " + messageText;
         Component finalMessage = Component.text(formatted);
         for (Player online : Bukkit.getOnlinePlayers()) {
             online.sendMessage(finalMessage);

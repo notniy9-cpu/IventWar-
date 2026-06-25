@@ -35,9 +35,19 @@ public class ZoneManager {
         saveZones();
     }
 
-    public void deleteZone(String name) { zones.remove(name); saveZones(); }
-    public Zone getZone(String name) { return zones.get(name); }
-    public Collection<Zone> getZones() { return zones.values(); }
+    public void deleteZone(String name) {
+        zones.remove(name);
+        saveZones();
+    }
+
+    public Zone getZone(String name) {
+        return zones.get(name);
+    }
+
+    public Collection<Zone> getZones() {
+        return zones.values();
+    }
+
     public Zone getZoneAt(Location loc) {
         for (Zone zone : zones.values()) {
             if (zone.isInside(loc)) return zone;
@@ -45,18 +55,19 @@ public class ZoneManager {
         return null;
     }
 
+    // ===== ЗАХВАТ ЗОНЫ (упрощённая логика) =====
     private void startCaptureTask() {
         new BukkitRunnable() {
             @Override
             public void run() {
-                // Проверяем, активен ли плагин
                 if (plugin == null || !plugin.isEnabled()) {
-                    this.cancel();
+                    cancel();
                     return;
                 }
                 for (Zone zone : zones.values()) {
                     if (zone.getPlayersInZone().isEmpty()) continue;
 
+                    // Собираем игроков по командам в зоне
                     Map<String, List<UUID>> playersByTeam = new HashMap<>();
                     for (UUID uuid : zone.getPlayersInZone()) {
                         Player p = Bukkit.getPlayer(uuid);
@@ -69,6 +80,7 @@ public class ZoneManager {
 
                     if (playersByTeam.isEmpty()) continue;
 
+                    // Находим доминирующую команду (с наибольшим количеством)
                     String dominantTeam = null;
                     int maxCount = 0;
                     for (Map.Entry<String, List<UUID>> entry : playersByTeam.entrySet()) {
@@ -78,27 +90,28 @@ public class ZoneManager {
                         }
                     }
 
-                    boolean isStrictlyDominant = true;
-                    for (Map.Entry<String, List<UUID>> entry : playersByTeam.entrySet()) {
-                        if (!entry.getKey().equals(dominantTeam)) {
-                            if (entry.getValue().size() >= maxCount) {
-                                isStrictlyDominant = false;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!isStrictlyDominant) {
-                        zone.clearProgress();
-                        continue;
-                    }
-
+                    // Если зона уже принадлежит этой команде – сбрасываем прогресс
                     if (zone.getOwnerTeam() != null && zone.getOwnerTeam().equals(dominantTeam)) {
                         zone.clearProgress();
                         continue;
                     }
 
-                    boolean captured = false;
+                    // Проверяем, есть ли игроки других команд в зоне
+                    boolean hasOtherTeams = false;
+                    for (String team : playersByTeam.keySet()) {
+                        if (!team.equals(dominantTeam)) {
+                            hasOtherTeams = true;
+                            break;
+                        }
+                    }
+
+                    // Если есть другие команды – захват НЕ идёт (нейтральная зона)
+                    if (hasOtherTeams) {
+                        zone.clearProgress();
+                        continue;
+                    }
+
+                    // Если в зоне только одна команда (или доминирующая) – начинаем захват
                     for (UUID uuid : playersByTeam.get(dominantTeam)) {
                         Player p = Bukkit.getPlayer(uuid);
                         if (p == null) continue;
@@ -106,6 +119,7 @@ public class ZoneManager {
                         int newProgress = Math.min(progress + 1, zone.getCaptureTime());
                         zone.setProgress(p, newProgress);
 
+                        // Показываем прогресс всем игрокам в зоне
                         for (UUID allUuid : zone.getPlayersInZone()) {
                             Player allP = Bukkit.getPlayer(allUuid);
                             if (allP != null && allP.isOnline()) {
@@ -123,22 +137,21 @@ public class ZoneManager {
                             Team team = plugin.getTeamManager().getTeam(dominantTeam);
                             String colorName = (team != null) ? team.getColor().toString() : "§a";
                             Bukkit.broadcastMessage("§a§lЗОНА ЗАХВАЧЕНА! " + colorName + dominantTeam + " §aзахватила зону '" + zone.getName() + "'!");
-                            captured = true;
                             break;
                         }
                     }
-                    if (captured) zone.clearProgress();
                 }
             }
         }.runTaskTimer(plugin, 0L, 20L);
     }
 
+    // ===== ЧАСТИЦЫ (без изменений) =====
     private void startParticleTask() {
         new BukkitRunnable() {
             @Override
             public void run() {
                 if (plugin == null || !plugin.isEnabled()) {
-                    this.cancel();
+                    cancel();
                     return;
                 }
                 try {
@@ -153,12 +166,33 @@ public class ZoneManager {
                             Team team = plugin.getTeamManager().getTeam(ownerTeam);
                             if (team != null) {
                                 switch (team.getColor()) {
-                                    case RED: particle = Particle.REDSTONE; break;
-                                    case BLUE: particle = Particle.SPELL_MOB; break;
-                                    case GREEN: particle = Particle.SPELL_MOB; break;
-                                    case GOLD: particle = Particle.SPELL_MOB; break;
-                                    case AQUA: particle = Particle.SPELL_MOB; break;
-                                    default: particle = Particle.END_ROD; break;
+                                    case RED:
+                                    case DARK_RED:
+                                        particle = Particle.REDSTONE;
+                                        break;
+                                    case BLUE:
+                                    case DARK_BLUE:
+                                        particle = Particle.SPELL_MOB;
+                                        break;
+                                    case GREEN:
+                                    case DARK_GREEN:
+                                        particle = Particle.SPELL_MOB;
+                                        break;
+                                    case GOLD:
+                                    case YELLOW:
+                                        particle = Particle.SPELL_MOB;
+                                        break;
+                                    case AQUA:
+                                    case DARK_AQUA:
+                                        particle = Particle.SPELL_MOB;
+                                        break;
+                                    case LIGHT_PURPLE:
+                                    case DARK_PURPLE:
+                                        particle = Particle.SPELL_MOB;
+                                        break;
+                                    default:
+                                        particle = Particle.END_ROD;
+                                        break;
                                 }
                             }
                         }
@@ -175,7 +209,6 @@ public class ZoneManager {
                             }
                         }
 
-                        // Отображаем прогресс для игроков в зоне
                         for (UUID uuid : zone.getPlayersInZone()) {
                             Player p = Bukkit.getPlayer(uuid);
                             if (p == null || !p.isOnline()) continue;
@@ -190,12 +223,13 @@ public class ZoneManager {
                         }
                     }
                 } catch (Exception e) {
-                    // Игнорируем ошибки, чтобы не спамить в консоль
+                    // ignore
                 }
             }
         }.runTaskTimer(plugin, 0L, 5L);
     }
 
+    // ----- Сохранение/Загрузка (без изменений) -----
     public void saveZones() {
         try (Writer writer = new FileWriter(dataFile)) {
             Map<String, ZoneData> dataMap = new HashMap<>();
@@ -210,7 +244,7 @@ public class ZoneManager {
             }
             gson.toJson(dataMap, writer);
         } catch (IOException e) {
-            // Не логируем, чтобы не спамить
+            // ignore
         }
     }
 
@@ -233,10 +267,8 @@ public class ZoneManager {
                 }
                 zones.put(name, zone);
             }
-            // Убираем лог
-            // plugin.getLogger().info("Загружено зон: " + zones.size());
         } catch (Exception e) {
-            // Игнорируем
+            // ignore
         }
     }
 
